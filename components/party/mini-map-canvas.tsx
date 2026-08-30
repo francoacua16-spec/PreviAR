@@ -2,7 +2,7 @@
 
 import { MapContainer, Marker, TileLayer } from 'react-leaflet'
 import L from 'leaflet'
-import { TILE_ATTRIBUTION, TILE_SUBDOMAINS, TILE_URL, MAX_ZOOM } from '@/lib/map-style'
+import { LABELS_URL, TILE_ATTRIBUTION, TILE_URL, MAX_ZOOM } from '@/lib/map-style'
 import { exactPinDataUrl } from '@/components/map/marker-icons'
 
 export function MiniMapCanvas({ lat, lng }: { lat: number; lng: number }) {
@@ -20,13 +20,8 @@ export function MiniMapCanvas({ lat, lng }: { lat: number; lng: number }) {
       zoomControl={false}
       className="h-full w-full bg-background"
     >
-      <TileLayer
-        url={TILE_URL}
-        attribution={TILE_ATTRIBUTION}
-        subdomains={TILE_SUBDOMAINS}
-        maxZoom={MAX_ZOOM}
-        detectRetina
-      />
+      <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={MAX_ZOOM} />
+      <TileLayer url={LABELS_URL} maxZoom={MAX_ZOOM} />
       <Marker position={[lat, lng]} icon={icon} />
     </MapContainer>
   )
