@@ -13,8 +13,11 @@ const MiniMapCanvas = dynamic(() => import('./mini-map-canvas').then((m) => m.Mi
 export function MiniMap({ lat, lng }: { lat: number; lng: number }) {
   return (
     <div className="relative h-44 w-full overflow-hidden rounded-2xl border border-neon-pink/30">
-      <MiniMapCanvas lat={lat} lng={lng} />
-      <span className="pointer-events-none absolute left-2.5 top-2.5 z-[500] rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-neon-pink backdrop-blur">
+      {/* z-0: encierra los panes de Leaflet para que no tapen el cartel. */}
+      <div className="absolute inset-0 z-0">
+        <MiniMapCanvas lat={lat} lng={lng} />
+      </div>
+      <span className="pointer-events-none absolute left-2.5 top-2.5 z-10 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-neon-pink backdrop-blur">
         Pin exacto · solo vos y los aprobados
       </span>
     </div>

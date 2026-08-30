@@ -87,6 +87,10 @@
   font-family: inherit;
   outline: none;
 }
+/* Los tiles de Esri son gris medio: los bajamos al negro de la marca. */
+.leaflet-tile-pane {
+  filter: brightness(0.42) saturate(0.55) contrast(1.15);
+}
 .leaflet-control-attribution {
   background: rgba(10, 10, 10, 0.7) !important;
   color: #6e6e76 !important;

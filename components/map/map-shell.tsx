@@ -82,7 +82,9 @@ export function MapShell() {
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-background">
       {/* MAPA */}
-      <div className="absolute inset-0">
+      {/* z-0 crea un stacking context propio: los panes de Leaflet (z-index 400+)
+          quedan encerrados y no tapan los overlays de la UI. */}
+      <div className="absolute inset-0 z-0">
         <MapCanvas
           city={city}
           zones={zones}
