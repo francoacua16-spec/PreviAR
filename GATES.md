@@ -25,7 +25,7 @@
   EVIDENCE: `npx tsc --noEmit` sin salida; `npm run build` genera las 9 rutas sin errores.
 
 - [x] G6 Cambios deployados a produccion y verificados en el sitio vivo.
-  EVIDENCE: verificado sobre https://previar-efeype.vercel.app/login (ver G4). Commit 6bcbfb1.
+  EVIDENCE: verificado sobre https://previar-efeype.vercel.app/login (ver G4). Commit e0e3c63.
 
 - [ ] G7 Google OAuth habilitado en Supabase y login end-to-end funcionando.
   CHECK: curl -s -o /dev/null -w '%{http_code}' "https://vwuscszboqavuvbmffmz.supabase.co/auth/v1/authorize?provider=google&redirect_to=https%3A%2F%2Fpreviar-efeype.vercel.app%2Fauth%2Fcallback"
