@@ -27,10 +27,14 @@
 - [x] G6 Cambios deployados a produccion y verificados en el sitio vivo.
   EVIDENCE: verificado sobre https://previar-efeype.vercel.app/login (ver G4). Commit e0e3c63.
 
-- [ ] G7 Google OAuth habilitado en Supabase y login end-to-end funcionando.
+- [x] G7 Google OAuth habilitado en Supabase y login end-to-end funcionando.
   CHECK: curl -s -o /dev/null -w '%{http_code}' "https://vwuscszboqavuvbmffmz.supabase.co/auth/v1/authorize?provider=google&redirect_to=https%3A%2F%2Fpreviar-efeype.vercel.app%2Fauth%2Fcallback"
   EXPECT: 302
-  EVIDENCE: pending
-  ABANDON: G7 requiere crear un OAuth Client en Google Cloud y pegar client_id/secret en el dashboard
-  de Supabase. Son credenciales: no las manipulo yo. Pasos exactos entregados a Franco; la verificacion
-  (el CHECK de arriba) la corro apenas los cargue.
+  EVIDENCE: curl devolvio 302 (antes 400). OAuth Client "PreviAR Web" creado en Google Cloud
+  (project previar), consent screen publicado "En produccion" (requirio agregar /privacy, homepage
+  URL y dominio autorizado). Client ID/Secret pegados y guardados en Supabase (Auth > Providers >
+  Google, toggle Enabled). Site URL y Redirect URLs de Supabase actualizados a
+  https://previar-efeype.vercel.app/**, https://previar-rust.vercel.app/**, http://localhost:3000/**.
+  Login real probado en produccion via Claude in Chrome: click "Entrar con Google" en
+  previar-efeype.vercel.app/login -> selector de cuenta real de Google -> pantalla de consentimiento
+  -> redirect a / con sesion activa (header muestra "Franco Acuña"). Flujo completo sin errores.
