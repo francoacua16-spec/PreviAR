@@ -28,6 +28,32 @@ function GoogleIcon({ className }: { className?: string }) {
   )
 }
 
+/**
+ * Pregunta al endpoint de Supabase si el provider esta habilitado ANTES de
+ * navegar. Sin esto, un provider apagado manda al usuario a una pantalla con el
+ * JSON crudo de Supabase ("Unsupported provider: provider is not enabled").
+ * Ante cualquier duda devuelve ok, para no bloquear un login que sí funciona.
+ */
+async function googleProviderReady(): Promise<{ ok: boolean; msg?: string }> {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!base) return { ok: true }
+  try {
+    const res = await fetch(`${base}/auth/v1/authorize?provider=google`, {
+      redirect: 'manual',
+      credentials: 'omit',
+    })
+    // Un redirect cross-origin llega como respuesta opaca: el provider anda.
+    if (res.type === 'opaqueredirect' || res.status === 0) return { ok: true }
+    if (res.status === 400) {
+      const body = (await res.json().catch(() => null)) as { msg?: string } | null
+      return { ok: false, msg: body?.msg }
+    }
+    return { ok: true }
+  } catch {
+    return { ok: true }
+  }
+}
+
 export function LoginButton({ next, fullWidth = true }: { next?: string; fullWidth?: boolean }) {
   const { supabase } = useUser()
   const [busy, setBusy] = useState(false)
@@ -35,22 +61,39 @@ export function LoginButton({ next, fullWidth = true }: { next?: string; fullWid
   async function signInWithGoogle() {
     if (busy) return
     setBusy(true)
+
+    const ready = await googleProviderReady()
+    if (!ready.ok) {
+      toast.error('El ingreso con Google no está habilitado todavía.', {
+        description:
+          ready.msg === 'Unsupported provider: provider is not enabled'
+            ? 'Falta activar el proveedor Google en Supabase. Escribinos y lo destrabamos.'
+            : ready.msg,
+        duration: 8000,
+      })
+      setBusy(false)
+      return
+    }
+
     try {
       const callback = `${window.location.origin}/auth/callback${
         next ? `?next=${encodeURIComponent(next)}` : ''
       }`
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: callback,
           queryParams: { prompt: 'select_account' },
+          skipBrowserRedirect: true,
         },
       })
-      if (error) {
+      if (error || !data?.url) {
         toast.error('No pudimos conectar con Google. Probá de nuevo.')
         setBusy(false)
+        return
       }
-      // Si no hay error, el navegador redirige a Google (no desactivar busy).
+      window.location.assign(data.url)
+      // El navegador se va a Google: no desactivamos busy.
     } catch {
       toast.error('No pudimos conectar con Google. Probá de nuevo.')
       setBusy(false)

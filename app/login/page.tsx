@@ -12,9 +12,10 @@ export const metadata: Metadata = {
 export default function LoginPage({
   searchParams,
 }: {
-  searchParams: { next?: string }
+  searchParams: { next?: string; error?: string }
 }) {
   const next = searchParams.next
+  const authFailed = searchParams.error === 'auth'
 
   return (
     <main className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 py-12">
@@ -49,6 +50,13 @@ export default function LoginPage({
           Descubrí por zona. Pedí permiso. La dirección exacta se desbloquea solo
           cuando el anfitrión te aprueba. Y a las 8 horas, no queda rastro.
         </p>
+
+        {authFailed && (
+          <p className="mt-8 w-full rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-center text-xs leading-relaxed text-destructive-foreground">
+            No pudimos completar el ingreso. Probá de nuevo; si sigue fallando,
+            cerrá la pestaña y volvé a entrar.
+          </p>
+        )}
 
         <div className="mt-8 w-full">
           <LoginButton next={next} />
