@@ -1,9 +1,15 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useMapsLibrary } from '@vis.gl/react-google-maps'
 import { MapPin } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+
+interface Suggestion {
+  id: string
+  lat: number
+  lng: number
+  label: string
+}
 
 interface AutocompleteInputProps {
   value: string
@@ -13,79 +19,59 @@ interface AutocompleteInputProps {
 }
 
 /**
- * Autocomplete de Google Places (sin UI de Google: lista propia).
- * Requiere la librería "places" cargada por <APIProvider libraries={['places']}>.
+ * Autocomplete de direcciones con Nominatim (OpenStreetMap), vía /api/geocode.
+ * Debounce 600ms para respetar el rate-limit de Nominatim (1 req/s).
  */
 export function AutocompleteInput({ value, onChange, onPlaceSelected }: AutocompleteInputProps) {
-  const places = useMapsLibrary('places')
-  const [service, setService] = useState<google.maps.places.AutocompleteService | null>(null)
-  const [detailsService, setDetailsService] = useState<google.maps.places.PlacesService | null>(null)
-  const [suggestions, setSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([])
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [open, setOpen] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abort = useRef<AbortController | null>(null)
 
-  useEffect(() => {
-    if (!places) return
-    setService(new places.AutocompleteService())
-    setDetailsService(new places.PlacesService(document.createElement('div')))
-  }, [places])
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current)
+      abort.current?.abort()
+    },
+    []
+  )
 
   function handleInput(text: string) {
     onChange(text)
-    if (!service) return
     if (timer.current) clearTimeout(timer.current)
     if (text.trim().length < 3) {
       setSuggestions([])
       setOpen(false)
       return
     }
-    timer.current = setTimeout(() => {
-      service.getPlacePredictions(
-        {
-          input: text,
-          componentRestrictions: { country: 'ar' },
-          types: ['geocode', 'establishment'],
-        },
-        (results, status) => {
-          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-            setSuggestions(results.slice(0, 5))
-            setOpen(true)
-          } else {
-            setSuggestions([])
-            setOpen(false)
-          }
-        }
-      )
-    }, 250)
+    timer.current = setTimeout(async () => {
+      abort.current?.abort()
+      const controller = new AbortController()
+      abort.current = controller
+      try {
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(text.trim())}`, {
+          signal: controller.signal,
+        })
+        const data = (await res.json()) as { results: Suggestion[] }
+        setSuggestions(data.results ?? [])
+        setOpen((data.results ?? []).length > 0)
+      } catch {
+        /* abortada o red caída: sin sugerencias */
+      }
+    }, 600)
   }
 
-  function pick(prediction: google.maps.places.AutocompletePrediction) {
-    onChange(prediction.description)
+  function pick(s: Suggestion) {
+    onChange(s.label)
     setOpen(false)
     setSuggestions([])
-    detailsService?.getDetails(
-      {
-        placeId: prediction.place_id,
-        fields: ['geometry.location', 'formatted_address'],
-      },
-      (result, status) => {
-        if (
-          status === google.maps.places.PlacesServiceStatus.OK &&
-          result?.geometry?.location
-        ) {
-          onPlaceSelected(
-            result.geometry.location.lat(),
-            result.geometry.location.lng(),
-            result.formatted_address ?? prediction.description
-          )
-        }
-      }
-    )
+    onPlaceSelected(s.lat, s.lng, s.label)
   }
 
   return (
     <div className="relative">
       <Input
+        id="party-address"
         value={value}
         onChange={(e) => handleInput(e.target.value)}
         onFocus={() => {
@@ -97,19 +83,19 @@ export function AutocompleteInput({ value, onChange, onPlaceSelected }: Autocomp
       {open && suggestions.length > 0 && (
         <ul className="absolute z-40 mt-1.5 w-full overflow-hidden rounded-xl border border-white/10 bg-[#16161A] shadow-card animate-fade-in">
           {suggestions.map((s) => (
-            <li key={s.place_id}>
+            <li key={s.id}>
               <button
                 type="button"
                 className="flex w-full items-start gap-2.5 px-3.5 py-3 text-left text-sm transition-colors hover:bg-white/5"
                 onClick={() => pick(s)}
               >
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-neon-pink" />
-                <span className="leading-snug">{s.description}</span>
+                <span className="leading-snug">{s.label}</span>
               </button>
             </li>
           ))}
           <li className="px-3.5 py-1.5 text-right text-[10px] text-muted-foreground/70">
-            Lugares por Google
+            Lugares por OpenStreetMap
           </li>
         </ul>
       )}

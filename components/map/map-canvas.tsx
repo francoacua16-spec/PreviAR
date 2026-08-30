@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { Map, Marker, useMap } from '@vis.gl/react-google-maps'
-import { DARK_MAP_STYLE } from '@/lib/map-style'
+import { useEffect, useMemo, useRef } from 'react'
+import { MapContainer, Marker, TileLayer, Tooltip, useMap } from 'react-leaflet'
+import L from 'leaflet'
+import { TILE_ATTRIBUTION, TILE_SUBDOMAINS, TILE_URL, MAX_ZOOM } from '@/lib/map-style'
 import { haversineMeters, distanceColor } from '@/lib/distance'
 import { PIN_COLORS } from '@/lib/constants'
 import { getCity, type City, type CityDef } from '@/lib/zones'
@@ -23,14 +24,37 @@ function CenterOnMe({ pos }: { pos: GeoPos | null }) {
   const done = useRef(false)
 
   useEffect(() => {
-    if (map && pos && !done.current) {
+    if (pos && !done.current) {
       done.current = true
-      map.panTo({ lat: pos.lat, lng: pos.lng })
+      map.panTo([pos.lat, pos.lng])
     }
   }, [map, pos])
 
   return null
 }
+
+const zoneIcon = (count: number, color: string) =>
+  L.icon({
+    iconUrl: zonePinDataUrl({ count, color }),
+    iconSize: [48, 54],
+    iconAnchor: [24, 54],
+    tooltipAnchor: [0, -50],
+  })
+
+const dimIcon = () =>
+  L.icon({
+    iconUrl: dimDotDataUrl(),
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+    tooltipAnchor: [0, -10],
+  })
+
+const userIcon = () =>
+  L.icon({
+    iconUrl: userDotDataUrl(),
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  })
 
 export function MapCanvas({ city, zones, pos, onSelectZone }: MapCanvasProps) {
   const cityDef: CityDef = getCity(city)
@@ -39,20 +63,29 @@ export function MapCanvas({ city, zones, pos, onSelectZone }: MapCanvasProps) {
     return acc
   }, {})
 
+  const icons = useMemo(() => ({ dim: dimIcon(), user: userIcon() }), [])
+
   return (
-    <Map
+    <MapContainer
       key={city} // remonta el mapa al cambiar de ciudad
-      defaultCenter={cityDef.center}
-      defaultZoom={13}
-      gestureHandling="greedy"
-      disableDefaultUI
-      clickableIcons={false}
-      styles={DARK_MAP_STYLE}
-      className="h-full w-full"
+      center={[cityDef.center.lat, cityDef.center.lng]}
+      zoom={13}
+      maxZoom={MAX_ZOOM}
+      zoomControl={false}
+      attributionControl
+      className="h-full w-full bg-background"
     >
+      <TileLayer
+        url={TILE_URL}
+        attribution={TILE_ATTRIBUTION}
+        subdomains={TILE_SUBDOMAINS}
+        maxZoom={MAX_ZOOM}
+        detectRetina
+      />
+
       <CenterOnMe pos={pos} />
 
-      {pos && <Marker position={pos} icon={userDotDataUrl()} zIndex={50} />}
+      {pos && <Marker position={[pos.lat, pos.lng]} icon={icons.user} zIndexOffset={500} />}
 
       {cityDef.zones.map((zone) => {
         const count = zoneCounts[zone.key] ?? 0
@@ -60,11 +93,12 @@ export function MapCanvas({ city, zones, pos, onSelectZone }: MapCanvasProps) {
           return (
             <Marker
               key={zone.key}
-              position={{ lat: zone.lat, lng: zone.lng }}
-              icon={dimDotDataUrl()}
-              title={zone.label}
-              onClick={() => onSelectZone(zone.key, zone.label)}
-            />
+              position={[zone.lat, zone.lng]}
+              icon={icons.dim}
+              eventHandlers={{ click: () => onSelectZone(zone.key, zone.label) }}
+            >
+              <Tooltip direction="top">{zone.label}</Tooltip>
+            </Marker>
           )
         }
         const meters = pos ? haversineMeters(pos, zone) : null
@@ -72,14 +106,17 @@ export function MapCanvas({ city, zones, pos, onSelectZone }: MapCanvasProps) {
         return (
           <Marker
             key={zone.key}
-            position={{ lat: zone.lat, lng: zone.lng }}
-            icon={zonePinDataUrl({ count, color })}
-            title={`${zone.label} · ${count} previa${count === 1 ? '' : 's'}`}
-            zIndex={30}
-            onClick={() => onSelectZone(zone.key, zone.label)}
-          />
+            position={[zone.lat, zone.lng]}
+            icon={zoneIcon(count, color)}
+            zIndexOffset={300}
+            eventHandlers={{ click: () => onSelectZone(zone.key, zone.label) }}
+          >
+            <Tooltip direction="top">
+              {`${zone.label} · ${count} previa${count === 1 ? '' : 's'}`}
+            </Tooltip>
+          </Marker>
         )
       })}
-    </Map>
+    </MapContainer>
   )
 }

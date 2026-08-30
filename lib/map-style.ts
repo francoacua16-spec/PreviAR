@@ -1,28 +1,9 @@
-// Estilo oscuro para Google Maps (fondo #0A0A0A + acentos sutiles)
-export const DARK_MAP_STYLE = [
-  { elementType: 'geometry', stylers: [{ color: '#101013' }] },
-  { elementType: 'geometry.fill', stylers: [{ color: '#0D0D10' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#8A8A93' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#0A0A0A' }] },
-  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#26262C' }] },
-  {
-    featureType: 'administrative.land_parcel',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#5B5B63' }],
-  },
-  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#0B0D11' }] },
-  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#141419' }] },
-  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#6E6E76' }] },
-  { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
-  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#0E1A13' }] },
-  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#3F6B55' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1B1B20' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#9A9AA2' }] },
-  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#232329' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#2E2E36' }] },
-  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#3A3A44' }] },
-  { featureType: 'road.local', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0A1420' }] },
-  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#3E5C74' }] },
-]
+// Tiles oscuros de CARTO (OpenStreetMap data). Gratis, sin API key.
+export const TILE_URL =
+  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+
+export const TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+
+export const TILE_SUBDOMAINS = ['a', 'b', 'c', 'd']
+export const MAX_ZOOM = 19

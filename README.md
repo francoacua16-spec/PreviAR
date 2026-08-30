@@ -12,7 +12,7 @@
 - **Next.js 14** (App Router, RSC + Route Handlers) — TypeScript estricto
 - **Tailwind CSS** + **shadcn/ui** (Radix primitives)
 - **Supabase** (Auth Google, Postgres, RLS, Realtime)
-- **@vis.gl/react-google-maps** (mapa oscuro, autocomplete de Places)
+- **Leaflet + OpenStreetMap** (tiles CARTO dark, autocomplete de direcciones con Nominatim) — sin API key
 - **PWA** instalable (manifest + service worker + íconos generados)
 
 ## Estructura
@@ -78,14 +78,11 @@ previar/
    - Redirect URLs: `http://localhost:3000/auth/callback` y (tras el deploy) `https://TU-DOMINIO.vercel.app/auth/callback`
 5. **Project Settings → API**: copiá URL, `anon key` y `service_role key` (este último es secreto, solo server).
 
-### 2) Google Cloud
+### 2) Google Cloud (solo OAuth de login)
 
-1. Creá un proyecto y activá las APIs: **Maps JavaScript API** y **Places API**.
-2. **APIs & Services → Credentials → OAuth Client ID (Web)** con Authorized redirect URIs:
-   `http://localhost:3000/auth/callback` y `https://TU-DOMINIO.vercel.app/auth/callback`
-   → ese Client ID/Secret van a Supabase Auth.
-3. **API Key**: creá una y restringila por HTTP referrer
-   (`localhost:3000/*`, `TU-DOMINIO.vercel.app/*`). Es la `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`.
+1. Creá un proyecto y configurá la pantalla de consentimiento OAuth.
+2. Credenciales → **OAuth Client ID** (Web) → redirect URI de Supabase. El Client ID/Secret van a Supabase Auth → Providers → Google.
+3. El mapa NO usa Google: Leaflet + OpenStreetMap, sin key ni billing.
 
 ### 3) Variables de entorno
 
@@ -110,7 +107,6 @@ npm run icons                # regenera public/icons/*.png (logo P-pin)
    (con `NEXT_PUBLIC_APP_URL=https://TU-DOMINIO.vercel.app` en producción).
 4. **Deploy**. Después del primer deploy:
    - Sumá `https://TU-DOMINIO.vercel.app/auth/callback` a las redirect URLs de **Supabase** y de **Google OAuth**.
-   - Si cambiaste el dominio, actualizá el referrer permitido de la Google API Key.
 5. **Cron horario**: viene en `vercel.json` (`0 * * * *` → `/api/cron/cleanup`, protegido con `CRON_SECRET`).
    ⚠️ Nota de plan: en Vercel **Hobby** los cron corren como máximo **1 vez por día**;
    en **Pro** corren cada hora. Igual, la RLS ya esconde cualquier previa expirada

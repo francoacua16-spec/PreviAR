@@ -8,8 +8,8 @@
 ## Pre-requisitos humanos (una sola vez, en la ventana de Chrome que abre el agente)
 
 1. **Supabase** — login + confirmar email + crear proyecto nuevo (gratis).
-2. **Google Cloud** — elegir cuenta, aceptar consent screen, **vincular facturación**
-   (las APIs de Maps/Places exigen billing; hay créditos gratis ~USD 200/mes, sin cargo
+2. **Google Cloud** — elegir cuenta y aceptar consent screen (solo para OAuth de login;
+   el mapa es Leaflet + OpenStreetMap, sin billing ni API key
    si no se superan). ⚠️ Decisión explícita del dueño.
 3. **GitHub** — login (para subir el repo y que Vercel lo importe).
 4. **Vercel** — login con GitHub (Hobby, gratis).
@@ -26,18 +26,15 @@
 
 ### B. Google Cloud
 - [ ] Crear/abrir proyecto.
-- [ ] Habilitar **Maps JavaScript API** y **Places API**.
 - [ ] **OAuth Client ID (Web)** con redirects `http://localhost:3000/auth/callback`
       y `https://previar.vercel.app/auth/callback` → pegar en Supabase Auth.
-- [ ] **API Key** restringida por HTTP referrer (`localhost:3000/*`,
-      `previar.vercel.app/*`) → `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`.
 
 ### C. GitHub + Vercel
 - [ ] `git remote add origin` + push de `previar/`.
 - [ ] Vercel → Add New Project → importar repo → framework Next.js.
 - [ ] Env vars (todas las de `.env.example`, con `NEXT_PUBLIC_APP_URL=https://previar.vercel.app`).
 - [ ] Deploy + verificar build; cron ya viene en `vercel.json` (`0 * * * *`).
-- [ ] Post-deploy: re-chequear redirects de Supabase/Google; actualizar referrer si cambió dominio.
+- [ ] Post-deploy: re-chequear redirects de Supabase/Google OAuth.
 
 ### D. Verificación
 - [ ] `https://previar.vercel.app` carga → login Google → mapa oscuro con zonas.

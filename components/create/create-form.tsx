@@ -19,11 +19,10 @@ import { cn } from '@/lib/utils'
 
 interface CreateFormProps {
   city: City
-  withAutocomplete: boolean
   onCreated: (partyId: string) => void
 }
 
-export function CreateForm({ city, withAutocomplete, onCreated }: CreateFormProps) {
+export function CreateForm({ city, onCreated }: CreateFormProps) {
   const { supabase, user } = useUser()
   const cityDef = getCity(city)
   const legalLimit = CITY_LEGAL_LIMITS[city]
@@ -157,29 +156,19 @@ export function CreateForm({ city, withAutocomplete, onCreated }: CreateFormProp
           <Label htmlFor="party-address">
             Dirección <span className="normal-case tracking-normal text-muted-foreground/70">(privada — solo la ven tus aprobados)</span>
           </Label>
-          {withAutocomplete ? (
-            <AutocompleteInput
-              value={address}
-              onChange={(v) => {
-                setAddress(v)
-                setLat(null)
-                setLng(null)
-              }}
-              onPlaceSelected={(la, ln, formatted) => {
-                setAddress(formatted)
-                setLat(la)
-                setLng(ln)
-              }}
-            />
-          ) : (
-            <Input
-              id="party-address"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Calle y altura"
-              autoComplete="off"
-            />
-          )}
+          <AutocompleteInput
+            value={address}
+            onChange={(v) => {
+              setAddress(v)
+              setLat(null)
+              setLng(null)
+            }}
+            onPlaceSelected={(la, ln, formatted) => {
+              setAddress(formatted)
+              setLat(la)
+              setLng(ln)
+            }}
+          />
         </div>
 
         <div className="space-y-1.5">

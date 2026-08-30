@@ -8,11 +8,10 @@ interface CreateDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   city: City
-  withAutocomplete: boolean
   onCreated: (partyId: string) => void
 }
 
-export function CreateDialog({ open, onOpenChange, city, withAutocomplete, onCreated }: CreateDialogProps) {
+export function CreateDialog({ open, onOpenChange, city, onCreated }: CreateDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -24,7 +23,6 @@ export function CreateDialog({ open, onOpenChange, city, withAutocomplete, onCre
         </DialogHeader>
         <CreateForm
           city={city}
-          withAutocomplete={withAutocomplete}
           onCreated={(id) => {
             onOpenChange(false)
             onCreated(id)
