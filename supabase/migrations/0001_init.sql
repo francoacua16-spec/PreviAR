@@ -115,6 +115,25 @@ create trigger trg_set_message_sender before insert on public.party_messages
 -- otorgan por columna. Todo dato sensible sale por funciones
 -- SECURITY DEFINER que chequean aprobación u host.
 
+-- Helper interno usado por las políticas de chat (debe existir antes)
+create or replace function public.is_party_member(p_party uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (
+    select 1 from public.parties p
+    where p.id = p_party
+      and (
+        p.host_id = auth.uid()
+        or exists (
+          select 1 from public.party_requests pr
+          where pr.party_id = p.id
+            and pr.user_id = auth.uid()
+            and pr.status = 'approved'
+        )
+      )
+  );
+$$;
+revoke all on function public.is_party_member(uuid) from public, anon;
+
 alter table public.users enable row level security;
 alter table public.parties enable row level security;
 alter table public.party_requests enable row level security;
@@ -177,25 +196,6 @@ alter publication supabase_realtime add table public.party_messages;
 alter publication supabase_realtime add table public.party_requests;
 
 -- ───────────────────────── 4. FUNCIONES ─────────────────────────
-
--- Helper interno para las políticas de chat
-create or replace function public.is_party_member(p_party uuid)
-returns boolean language sql security definer stable set search_path = public as $$
-  select exists (
-    select 1 from public.parties p
-    where p.id = p_party
-      and (
-        p.host_id = auth.uid()
-        or exists (
-          select 1 from public.party_requests pr
-          where pr.party_id = p.id
-            and pr.user_id = auth.uid()
-            and pr.status = 'approved'
-        )
-      )
-  );
-$$;
-revoke all on function public.is_party_member(uuid) from public, anon;
 
 -- Crear previa: anti-spam (3/24h), validez, expiración +8h,
 -- y control SERVER-SIDE del consentimiento legal.
