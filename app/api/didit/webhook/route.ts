@@ -4,14 +4,41 @@ import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
 
+/** Compara en tiempo constante, tolerando largos distintos. */
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a)
+  const bb = Buffer.from(b)
+  return ab.length === bb.length && crypto.timingSafeEqual(ab, bb)
+}
+
+const hmac = (secret: string, data: string) =>
+  crypto.createHmac('sha256', secret).update(data, 'utf8').digest('hex')
+
+/** JSON compacto con las claves ordenadas: la forma canónica que firma X-Signature-V2. */
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>
+    const body = Object.keys(obj)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`)
+      .join(',')
+    return `{${body}}`
+  }
+  return JSON.stringify(value) ?? 'null'
+}
+
 /**
  * Webhook de Didit: marca al usuario como verificado cuando la sesión termina Approved.
  *
- * OJO: la firma HMAC acá se calcula sobre el raw body con SHA256, que es el patrón
- * estándar de Didit (header `X-Signature-V2`, ver docs.didit.me/integration/webhooks).
- * No pudimos probar esto end-to-end sin credenciales reales — antes de confiar en
- * producción, disparar un webhook de prueba desde el dashboard de Didit y confirmar
- * que la firma matchea con el algoritmo de acá.
+ * Didit manda tres firmas HMAC-SHA256 (docs.didit.me/integration/webhooks):
+ *   X-Signature      → sobre los bytes crudos, tal cual se transmitieron.
+ *   X-Signature-V2   → sobre el JSON canónico (claves ordenadas, compacto).
+ *   X-Signature-Simple → NO autentica el cuerpo; no la usamos.
+ * Priorizamos X-Signature porque acá leemos el raw body antes de parsear, así que
+ * es exacta y no depende de reproducir su canonicalización. V2 queda de respaldo.
+ *
+ * X-Timestamp acota el replay: rechazamos cualquier cosa a más de 5 minutos.
  */
 export async function POST(req: NextRequest) {
   const secret = process.env.DIDIT_WEBHOOK_SECRET
@@ -19,14 +46,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'not configured' }, { status: 503 })
   }
 
-  const raw = await req.text()
-  const signature = req.headers.get('x-signature-v2') ?? req.headers.get('x-signature') ?? ''
+  const ts = Number(req.headers.get('x-timestamp'))
+  if (!Number.isFinite(ts) || Math.abs(Math.floor(Date.now() / 1000) - ts) > 300) {
+    return NextResponse.json({ error: 'stale timestamp' }, { status: 401 })
+  }
 
-  const expected = crypto.createHmac('sha256', secret).update(raw).digest('hex')
-  const sigBuf = Buffer.from(signature)
-  const expBuf = Buffer.from(expected)
-  const validSignature =
-    sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf)
+  const raw = await req.text()
+
+  let validSignature = false
+  const sigRaw = req.headers.get('x-signature')
+  if (sigRaw) validSignature = safeEqual(sigRaw, hmac(secret, raw))
+
+  const sigV2 = req.headers.get('x-signature-v2')
+  if (!validSignature && sigV2) {
+    try {
+      validSignature = safeEqual(sigV2, hmac(secret, canonicalJson(JSON.parse(raw))))
+    } catch {
+      validSignature = false
+    }
+  }
 
   if (!validSignature) {
     console.error('Didit webhook: firma inválida')
