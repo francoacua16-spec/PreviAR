@@ -25,10 +25,13 @@ const MapCanvas = dynamic(() => import('./map-canvas').then((m) => m.MapCanvas),
 
 const CITY_STORAGE_KEY = 'previar:city'
 
-function getStoredCity(): City {
-  if (typeof window === 'undefined') return 'la_plata'
-  const stored = window.localStorage.getItem(CITY_STORAGE_KEY)
-  return stored === 'caba' || stored === 'bariloche' ? stored : 'la_plata'
+function readStoredCity(): City | null {
+  try {
+    const stored = window.localStorage.getItem(CITY_STORAGE_KEY)
+    return stored === 'caba' || stored === 'bariloche' || stored === 'la_plata' ? stored : null
+  } catch {
+    return null
+  }
 }
 
 export function MapShell() {
@@ -36,12 +39,23 @@ export function MapShell() {
   const router = useRouter()
   const { pos } = useGeolocation()
 
-  const [city, setCity] = useState<City>(getStoredCity)
+  // El server no puede leer localStorage: si acá arrancáramos con la ciudad
+  // guardada, el HTML del server y el del cliente no coinciden y React descarta
+  // el marcado hidratado. Eso dejaba el botón de la ciudad activa pintado mal:
+  // tocabas CABA estando ya en CABA y no pasaba nada. Arrancamos siempre igual
+  // que el server y ajustamos después de montar.
+  const [city, setCity] = useState<City>('la_plata')
   const [zones, setZones] = useState<CityZoneRow[]>([])
   const [zonesLoading, setZonesLoading] = useState(false)
   const [selectedZone, setSelectedZone] = useState<{ key: string; label: string } | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [myPartiesOpen, setMyPartiesOpen] = useState(false)
+
+  // Ciudad guardada de la visita anterior, ya montado (ver comentario arriba).
+  useEffect(() => {
+    const stored = readStoredCity()
+    if (stored) setCity(stored)
+  }, [])
 
   // Refresca zonas cuando cambia ciudad / usuario / o se crea una previa.
   // silent=true se usa en el polling de fondo: no prende el spinner ni tira toasts.

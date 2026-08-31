@@ -9,8 +9,10 @@ interface CityPickerProps {
 }
 
 export function CityPicker({ city, onChange }: CityPickerProps) {
+  // z-40: por encima del LoginGate (z-30). Sin sesión el mapa no se toca,
+  // pero cambiar de ciudad sí, si no los botones parecen rotos.
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-[64px] z-20 flex justify-center px-4">
+    <div className="pointer-events-none absolute inset-x-0 top-[64px] z-40 flex justify-center px-4">
       <div className="pointer-events-auto no-scrollbar glass flex max-w-full gap-1 overflow-x-auto rounded-full p-1">
         {CITIES.map((c) => {
           const active = c.key === city

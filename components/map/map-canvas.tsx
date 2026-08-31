@@ -7,6 +7,7 @@ import { LABELS_URL, TILE_ATTRIBUTION, TILE_URL, MAX_ZOOM } from '@/lib/map-styl
 import { haversineMeters, distanceColor } from '@/lib/distance'
 import { PIN_COLORS } from '@/lib/constants'
 import { getCity, type City, type CityDef } from '@/lib/zones'
+import { CITY_RADIUS_M } from '@/lib/constants'
 import type { CityZoneRow } from '@/lib/types'
 import { zonePinDataUrl, userDotDataUrl, dimDotDataUrl } from './marker-icons'
 import type { GeoPos } from './use-geolocation'
@@ -18,8 +19,13 @@ interface MapCanvasProps {
   onSelectZone: (zoneKey: string, zoneLabel: string) => void
 }
 
-/** Centra el mapa en el usuario la primera vez que llega su ubicación. */
-function CenterOnMe({ pos, skip }: { pos: GeoPos | null; skip?: boolean }) {
+/**
+ * Centra el mapa en el usuario la primera vez que llega su ubicación, pero
+ * SOLO si está dentro de la ciudad elegida. Sin ese chequeo, estando en
+ * La Plata y tocando CABA el mapa se centraba en CABA y al instante volvía
+ * a La Plata: parecía que el botón no hacía nada.
+ */
+function CenterOnMe({ pos, cityDef, skip }: { pos: GeoPos | null; cityDef: CityDef; skip?: boolean }) {
   const map = useMap()
   const done = useRef(false)
 
@@ -28,11 +34,11 @@ function CenterOnMe({ pos, skip }: { pos: GeoPos | null; skip?: boolean }) {
   }, [skip])
 
   useEffect(() => {
-    if (pos && !done.current) {
-      done.current = true
-      map.panTo([pos.lat, pos.lng])
-    }
-  }, [map, pos])
+    if (!pos || done.current) return
+    done.current = true
+    if (haversineMeters(pos, cityDef.center) > CITY_RADIUS_M) return
+    map.panTo([pos.lat, pos.lng])
+  }, [map, pos, cityDef])
 
   return null
 }
@@ -57,6 +63,9 @@ function readSavedView(city: City): SavedView | null {
       typeof parsed?.lng === 'number' &&
       typeof parsed?.zoom === 'number'
     ) {
+      // Una vista guardada lejos de la ciudad quedó mal (bug viejo: el mapa se
+      // iba a tu ubicación al cambiar de ciudad y guardaba eso). La tiramos.
+      if (haversineMeters(parsed, getCity(city).center) > CITY_RADIUS_M) return null
       return parsed
     }
   } catch {
@@ -135,7 +144,7 @@ export function MapCanvas({ city, zones, pos, onSelectZone }: MapCanvasProps) {
       <TileLayer url={LABELS_URL} maxZoom={MAX_ZOOM} />
 
       <PersistView city={city} />
-      <CenterOnMe pos={pos} skip={!!savedView} />
+      <CenterOnMe pos={pos} cityDef={cityDef} skip={!!savedView} />
 
       {pos && <Marker position={[pos.lat, pos.lng]} icon={icons.user} zIndexOffset={500} />}
 
