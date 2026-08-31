@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { Toaster } from 'sonner'
 import { getSupabaseBrowser } from '@/lib/supabase/client'
+import { isAdmin } from '@/lib/api'
 import { PwaRegister } from '@/components/pwa-register'
 
 export interface Profile {
@@ -19,6 +20,8 @@ export interface Profile {
 interface UserContextValue {
   user: User | null
   profile: Profile | null
+  /** Solo para pintar el panel: la base valida de nuevo en cada RPC de admin. */
+  isAdmin: boolean
   loading: boolean
   supabase: SupabaseClient
   refreshProfile: () => Promise<void>
@@ -30,6 +33,7 @@ export function Providers({ children }: { children: ReactNode }) {
   const supabase = useMemo(() => getSupabaseBrowser(), [])
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [admin, setAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const refreshProfile = useCallback(
@@ -72,7 +76,10 @@ export function Providers({ children }: { children: ReactNode }) {
     supabase.auth.getUser().then(({ data }) => {
       if (!active) return
       setUser(data.user)
-      if (data.user) refreshProfile(data.user.id)
+      if (data.user) {
+        refreshProfile(data.user.id)
+        isAdmin(supabase).then((v) => active && setAdmin(v))
+      }
       setLoading(false)
     })
 
@@ -81,8 +88,13 @@ export function Providers({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       const u = session?.user ?? null
       setUser(u)
-      if (u) refreshProfile(u.id)
-      else setProfile(null)
+      if (u) {
+        refreshProfile(u.id)
+        isAdmin(supabase).then((v) => active && setAdmin(v))
+      } else {
+        setProfile(null)
+        setAdmin(false)
+      }
     })
 
     return () => {
@@ -95,11 +107,12 @@ export function Providers({ children }: { children: ReactNode }) {
     () => ({
       user,
       profile,
+      isAdmin: admin,
       loading,
       supabase,
       refreshProfile: () => (user ? refreshProfile(user.id) : Promise.resolve()),
     }),
-    [user, profile, loading, supabase, refreshProfile]
+    [user, profile, admin, loading, supabase, refreshProfile]
   )
 
   return (

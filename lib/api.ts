@@ -3,6 +3,13 @@ import type {
   City,
 } from './zones'
 import type {
+  AdminFilter,
+  AdminMessageRow,
+  AdminPartyRow,
+  AdminPersonRow,
+  AdminReportRow,
+  AdminStats,
+  AdminUserRow,
   CityZoneRow,
   CreatePartyInput,
   MyPartyRow,
@@ -24,6 +31,7 @@ export function friendlyError(error: unknown): string {
   if (msg.includes('NOT_APPROVED')) return 'Necesitás la aprobación del anfitrión.'
   if (msg.includes('NOT_HOST')) return 'Solo el anfitrión puede hacer eso.'
   if (msg.includes('NOT_AUTH')) return 'Iniciá sesión para continuar.'
+  if (msg.includes('NOT_ADMIN')) return 'No tenés permiso para eso.'
   if (msg.includes('BAD_TITLE')) return 'El título necesita al menos 3 caracteres.'
   if (msg.includes('BAD_DATE')) return 'Elegí una fecha de inicio a futuro.'
   if (msg.includes('BAD_CAPACITY')) return 'Capacidad inválida (1 a 500 personas).'
@@ -189,6 +197,123 @@ export async function updateProfile(
 ): Promise<void> {
   const { error } = await supabase.from('users').update(fields).eq('id', userId)
   if (error) throw error
+}
+
+// ─────────────────────────── ADMIN ───────────────────────────
+// Todo esto vive detrás de is_admin() en la base: si no sos admin, las
+// funciones tiran NOT_ADMIN. El front solo esconde botones, no protege nada.
+
+/** true si el usuario actual es admin. Devuelve false si la 0004 todavía no corrió. */
+export async function isAdmin(supabase: SupabaseClient): Promise<boolean> {
+  const { data, error } = await supabase.rpc('is_admin')
+  // PGRST202 = la función no existe todavía (migración 0004 sin correr).
+  if (error) {
+    if (error.code !== 'PGRST202') console.error('is_admin failed', error.message)
+    return false
+  }
+  return data === true
+}
+
+export async function adminListParties(
+  supabase: SupabaseClient,
+  filter: AdminFilter = 'all'
+): Promise<AdminPartyRow[]> {
+  const { data, error } = await supabase.rpc('admin_list_parties', { p_filter: filter })
+  if (error) throw error
+  return (data as AdminPartyRow[] | null) ?? []
+}
+
+export async function adminStats(supabase: SupabaseClient): Promise<AdminStats | null> {
+  const { data, error } = await supabase.rpc('admin_stats')
+  if (error) throw error
+  return ((data as AdminStats[] | null) ?? [])[0] ?? null
+}
+
+/** Da de baja: sale del mapa al instante, pero la previa queda registrada. */
+export async function adminDeleteParty(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_delete_party', { p_id: id })
+  if (error) throw error
+}
+
+export async function adminRestoreParty(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_restore_party', { p_id: id })
+  if (error) throw error
+}
+
+/** Borrado definitivo: se lleva solicitudes, chat y reportes. No hay undo. */
+export async function adminPurgeParty(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_purge_party', { p_id: id })
+  if (error) throw error
+}
+
+/** Previas creadas desde la última vez que el admin abrió el panel. */
+export async function adminUnseenCount(supabase: SupabaseClient): Promise<number> {
+  const { data, error } = await supabase.rpc('admin_unseen_count')
+  if (error) return 0
+  return (data as number) ?? 0
+}
+
+export async function adminMarkSeen(supabase: SupabaseClient): Promise<void> {
+  const { error } = await supabase.rpc('admin_mark_seen')
+  if (error) console.error('admin_mark_seen failed', error.message)
+}
+
+/**
+ * Chat privado de una previa. Es solo lectura: no existe forma de escribir
+ * desde el panel, así que la gente nunca se entera de que lo miraste.
+ */
+export async function adminReadChat(
+  supabase: SupabaseClient,
+  partyId: string
+): Promise<AdminMessageRow[]> {
+  const { data, error } = await supabase.rpc('admin_read_chat', { p_party: partyId })
+  if (error) throw error
+  return (data as AdminMessageRow[] | null) ?? []
+}
+
+export async function adminDeleteMessage(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_delete_message', { p_id: id })
+  if (error) throw error
+}
+
+export async function adminPartyPeople(
+  supabase: SupabaseClient,
+  partyId: string
+): Promise<AdminPersonRow[]> {
+  const { data, error } = await supabase.rpc('admin_party_people', { p_party: partyId })
+  if (error) throw error
+  return (data as AdminPersonRow[] | null) ?? []
+}
+
+export async function adminListUsers(
+  supabase: SupabaseClient,
+  q?: string
+): Promise<AdminUserRow[]> {
+  const { data, error } = await supabase.rpc('admin_list_users', { p_q: q ?? null })
+  if (error) throw error
+  return (data as AdminUserRow[] | null) ?? []
+}
+
+export async function adminListReports(supabase: SupabaseClient): Promise<AdminReportRow[]> {
+  const { data, error } = await supabase.rpc('admin_list_reports')
+  if (error) throw error
+  return (data as AdminReportRow[] | null) ?? []
+}
+
+export async function adminSetVerified(
+  supabase: SupabaseClient,
+  userId: string,
+  value: boolean
+): Promise<void> {
+  const { error } = await supabase.rpc('admin_set_verified', { p_user: userId, p_value: value })
+  if (error) throw error
+}
+
+/** Da de baja todas sus previas activas y rechaza sus pendientes. Devuelve cuántas cayeron. */
+export async function adminBanUser(supabase: SupabaseClient, userId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('admin_ban_user', { p_user: userId })
+  if (error) throw error
+  return (data as number) ?? 0
 }
 
 /** Arranca una sesión de verificación de identidad (Didit) y devuelve la URL a la que redirigir. */

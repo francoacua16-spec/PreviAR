@@ -2,20 +2,21 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { BadgeCheck, Bell, LogOut, User } from 'lucide-react'
+import { BadgeCheck, Bell, LogOut, Shield, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { PinLogo } from '@/components/logo'
 import { useUser } from '@/components/providers'
-import { countPendingForMe } from '@/lib/api'
+import { adminUnseenCount, countPendingForMe } from '@/lib/api'
 
 interface HeaderProps {
   onOpenMyParties: () => void
 }
 
 export function Header({ onOpenMyParties }: HeaderProps) {
-  const { user, profile, supabase } = useUser()
+  const { user, profile, isAdmin, supabase } = useUser()
   const router = useRouter()
   const [pending, setPending] = useState(0)
+  const [unseen, setUnseen] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
@@ -47,6 +48,30 @@ export function Header({ onOpenMyParties }: HeaderProps) {
       supabase.removeChannel(channel)
     }
   }, [user, supabase])
+
+  // Aviso de admin: previas nuevas desde la última visita al panel, más un
+  // toast en vivo si alguien crea una previa mientras Franco mira el mapa.
+  useEffect(() => {
+    if (!isAdmin) return
+    let active = true
+
+    adminUnseenCount(supabase).then((n) => active && setUnseen(n))
+
+    const channel = supabase
+      .channel('admin-new-parties')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'parties' }, (payload) => {
+        if (!active) return
+        const title = (payload.new as { title?: string }).title ?? 'sin título'
+        toast(`🎉 Previa nueva: ${title}`, { description: 'Tocá tu cuenta → Panel de control.' })
+        setUnseen((n) => n + 1)
+      })
+      .subscribe()
+
+    return () => {
+      active = false
+      supabase.removeChannel(channel)
+    }
+  }, [isAdmin, supabase])
 
   async function signOut() {
     await supabase.auth.signOut()
@@ -97,6 +122,11 @@ export function Header({ onOpenMyParties }: HeaderProps) {
               </span>
               <span className="max-w-24 truncate text-xs font-semibold">{name}</span>
               {profile?.verified && <BadgeCheck className="h-4 w-4 shrink-0 text-neon-cyan" />}
+              {isAdmin && unseen > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-neon-cyan px-1 text-[10px] font-bold text-black">
+                  {unseen}
+                </span>
+              )}
             </button>
 
             {menuOpen && (
@@ -119,6 +149,23 @@ export function Header({ onOpenMyParties }: HeaderProps) {
                 >
                   <User className="h-4 w-4" /> Mi perfil
                 </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false)
+                      setUnseen(0)
+                      router.push('/admin')
+                    }}
+                    className="flex w-full items-center gap-2 border-t border-white/5 px-4 py-3 text-sm text-neon-cyan transition-colors hover:bg-white/5"
+                  >
+                    <Shield className="h-4 w-4" /> Panel de control
+                    {unseen > 0 && (
+                      <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-neon-cyan px-1 text-[10px] font-bold text-black">
+                        {unseen}
+                      </span>
+                    )}
+                  </button>
+                )}
                 <button
                   onClick={signOut}
                   className="flex w-full items-center gap-2 border-t border-white/5 px-4 py-3 text-sm text-zone-red transition-colors hover:bg-white/5"
