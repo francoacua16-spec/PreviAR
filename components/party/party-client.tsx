@@ -253,6 +253,29 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
         </section>
       )}
 
+      {/* Ubicación aproximada: la ve cualquiera, aun sin aprobación. */}
+      {!isApproved && !expired && (party.approx_area || party.lat_approx != null) && (
+        <section className="mt-3 rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Zona aproximada
+          </p>
+          {party.approx_area && (
+            <p className="mt-1.5 flex items-start gap-1.5 text-sm font-semibold">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              {party.approx_area}
+            </p>
+          )}
+          {party.lat_approx != null && party.lng_approx != null && (
+            <div className="mt-2.5">
+              <MiniMap lat={party.lat_approx} lng={party.lng_approx} approximate />
+            </div>
+          )}
+          <p className="mt-2 text-[11px] text-muted-foreground/70">
+            Es orientativo. La dirección exacta y cómo llegar aparecen cuando te aprueban.
+          </p>
+        </section>
+      )}
+
       {/* Estado según mi relación con la previa */}
       <section className="mt-3 space-y-3">
         {expired && (
@@ -306,6 +329,11 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
                 <p className="mt-1.5 flex items-start gap-1.5 text-base font-bold">
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-neon-pink" />
                   {party.address_hidden}
+                </p>
+              )}
+              {party.arrival_notes && (
+                <p className="mt-2 whitespace-pre-line rounded-xl bg-white/[0.04] p-2.5 text-sm leading-relaxed text-foreground/85">
+                  {party.arrival_notes}
                 </p>
               )}
               {party.lat_hidden != null && party.lng_hidden != null && (

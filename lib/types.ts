@@ -39,6 +39,12 @@ export interface PartyRow {
   address_hidden: string | null
   lat_hidden: number | null
   lng_hidden: number | null
+  /** Cómo llegar, escrito por el host. Solo host/aprobados. */
+  arrival_notes: string | null
+  /** Zona aproximada ("Campichuelo al 1300"). Visible para todos. */
+  approx_area: string | null
+  lat_approx: number | null
+  lng_approx: number | null
   my_status: MyStatus
   checked_in: boolean
 }
@@ -82,6 +88,7 @@ export interface CreatePartyInput {
   city: 'la_plata' | 'caba' | 'bariloche'
   zone: string
   address: string | null
+  arrivalNotes: string | null
   lat: number | null
   lng: number | null
   startAt: string

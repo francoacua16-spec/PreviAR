@@ -31,6 +31,7 @@ export function CreateForm({ city, onCreated }: CreateFormProps) {
   const [description, setDescription] = useState('')
   const [zone, setZone] = useState(cityDef.zones[0].key)
   const [address, setAddress] = useState('')
+  const [arrivalNotes, setArrivalNotes] = useState('')
   const [lat, setLat] = useState<number | null>(null)
   const [lng, setLng] = useState<number | null>(null)
   const [startAt, setStartAt] = useState(() => toDateTimeLocalValue(new Date(Date.now() + 3 * 3600_000)))
@@ -77,6 +78,7 @@ export function CreateForm({ city, onCreated }: CreateFormProps) {
         city,
         zone,
         address: address.trim() ? address.trim() : null,
+        arrivalNotes: arrivalNotes.trim() ? arrivalNotes.trim() : null,
         lat: lat ?? (zoneDef ? zoneDef.lat : null),
         lng: lng ?? (zoneDef ? zoneDef.lng : null),
         startAt: new Date(startAt).toISOString(),
@@ -168,6 +170,25 @@ export function CreateForm({ city, onCreated }: CreateFormProps) {
               setLat(la)
               setLng(ln)
             }}
+          />
+          <p className="text-[11px] text-muted-foreground/70">
+            Antes de aprobar, los demás solo ven la altura redondeada (ej. “Campichuelo al 1300”).
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="party-arrival">
+            Cómo llegar{' '}
+            <span className="normal-case tracking-normal text-muted-foreground/70">
+              (se desbloquea con la dirección)
+            </span>
+          </Label>
+          <Textarea
+            id="party-arrival"
+            value={arrivalNotes}
+            onChange={(e) => setArrivalNotes(e.target.value)}
+            placeholder="Casa en la esquina de Campichuelo y El Ciprés, portón negro. Timbre 2B."
+            maxLength={200}
           />
         </div>
 

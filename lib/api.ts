@@ -103,6 +103,7 @@ export async function createParty(
     p_max_people: input.maxPeople,
     p_type: input.type,
     p_legal_ok: input.legalOk,
+    p_arrival_notes: input.arrivalNotes,
   })
   if (error) throw error
   return data as string
