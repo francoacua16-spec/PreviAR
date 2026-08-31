@@ -91,7 +91,7 @@ export async function createParty(
   supabase: SupabaseClient,
   input: CreatePartyInput
 ): Promise<string> {
-  const { data, error } = await supabase.rpc('create_party', {
+  const base = {
     p_title: input.title,
     p_description: input.description,
     p_city: input.city,
@@ -103,9 +103,24 @@ export async function createParty(
     p_max_people: input.maxPeople,
     p_type: input.type,
     p_legal_ok: input.legalOk,
+  }
+
+  const { data, error } = await supabase.rpc('create_party', {
+    ...base,
     p_arrival_notes: input.arrivalNotes,
   })
-  if (error) throw error
+
+  // PGRST202 = no existe una función con esa firma. Pasa si el código ya está
+  // deployado pero la migración 0003 todavía no corrió: ahí la única firma en
+  // la base es la vieja de 11 args. Reintentamos sin la nota para no dejar de
+  // crear previas durante esa ventana (se pierde arrival_notes, no la previa).
+  if (error) {
+    if (error.code !== 'PGRST202') throw error
+    const retry = await supabase.rpc('create_party', base)
+    if (retry.error) throw retry.error
+    return retry.data as string
+  }
+
   return data as string
 }
 

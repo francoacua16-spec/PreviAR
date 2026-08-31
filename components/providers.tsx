@@ -34,12 +34,34 @@ export function Providers({ children }: { children: ReactNode }) {
 
   const refreshProfile = useCallback(
     async (uid: string) => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .select('id, city, reputation, display_name, avatar_url, verified')
         .eq('id', uid)
         .maybeSingle()
-      setProfile((data as Profile | null) ?? null)
+
+      if (!error) {
+        setProfile((data as Profile | null) ?? null)
+        return
+      }
+
+      // 42703 = columna inexistente: el código salió antes que la migración
+      // 0002. Caemos al perfil viejo para no dejar la app sin ciudad ni
+      // reputación (las features nuevas quedan apagadas hasta que corra).
+      if (error.code !== '42703') return
+      const { data: legacy } = await supabase
+        .from('users')
+        .select('id, city, reputation')
+        .eq('id', uid)
+        .maybeSingle()
+      setProfile(
+        legacy
+          ? { ...(legacy as Omit<Profile, 'display_name' | 'avatar_url' | 'verified'>),
+              display_name: null,
+              avatar_url: null,
+              verified: false }
+          : null
+      )
     },
     [supabase]
   )

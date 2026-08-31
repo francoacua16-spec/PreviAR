@@ -10,6 +10,10 @@
 -- Idempotente.
 -- ════════════════════════════════════════════════════════════════
 
+-- Todo en una transacción: get_party se dropea y se recrea más abajo, y no
+-- queremos que quede ni un instante sin existir para la app en vivo.
+begin;
+
 -- ───────────────────────── 1. COLUMNAS ─────────────────────────
 
 alter table public.parties
@@ -96,20 +100,63 @@ end; $$;
 
 -- ───────── 3. BACKFILL de las previas que ya existen ───────────
 
+-- El difuminado se calcula en una subconsulta aparte: Postgres no deja que un
+-- FROM con función referencie la tabla que el propio UPDATE está tocando.
 update public.parties p
-set approx_area = public.blur_address(p.address_hidden),
-    lat_approx = b.lat,
-    lng_approx = b.lng
-from public.blur_point(p.lat_hidden, p.lng_hidden, p.id) b
-where p.approx_area is null and p.lat_approx is null;
+set approx_area = src.area,
+    lat_approx = src.lat,
+    lng_approx = src.lng
+from (
+  select pp.id,
+         public.blur_address(pp.address_hidden) as area,
+         b.lat,
+         b.lng
+  from public.parties pp
+  cross join lateral public.blur_point(pp.lat_hidden, pp.lng_hidden, pp.id) b
+) src
+where src.id = p.id
+  and p.approx_area is null
+  and p.lat_approx is null;
+
+-- ───────── 3b. TRIGGER: que nunca falte el aproximado ──────────
+
+-- Red de seguridad: rellena los campos difusos en cualquier insert que no los
+-- traiga. Sin esto, las previas creadas con la firma vieja de create_party
+-- (la que sigue viva durante el deploy) quedarían sin zona aproximada y no se
+-- les vería ubicación alguna hasta que expiren.
+create or replace function public.fill_approx_location()
+returns trigger
+language plpgsql set search_path = public as $$
+declare
+  v_blur record;
+begin
+  if new.approx_area is null then
+    new.approx_area := public.blur_address(new.address_hidden);
+  end if;
+
+  if new.lat_approx is null and new.lat_hidden is not null then
+    select * into v_blur from public.blur_point(new.lat_hidden, new.lng_hidden, new.id);
+    new.lat_approx := v_blur.lat;
+    new.lng_approx := v_blur.lng;
+  end if;
+
+  return new;
+end; $$;
+
+drop trigger if exists parties_fill_approx on public.parties;
+create trigger parties_fill_approx
+  before insert on public.parties
+  for each row execute function public.fill_approx_location();
 
 -- ───────── 4. create_party: acepta la nota de llegada ──────────
 
--- Firma vieja (11 args) queda huérfana: la borramos para no dejar dos.
-drop function if exists public.create_party(
-  text, text, text, text, text, double precision, double precision,
-  timestamptz, int, text, boolean
-);
+-- OJO con el orden de despliegue: la firma vieja (11 args) se deja VIVA a
+-- propósito. Entre que corre esta migración y que sale el deploy, la app en
+-- producción sigue llamando con 11 args; si la borráramos acá, crear previas
+-- rompería durante toda esa ventana.
+-- Por eso p_arrival_notes NO lleva `default`: con default, una llamada de 11
+-- args sería ambigua entre las dos firmas y Postgres la rechazaría.
+-- La firma vieja se limpia después del deploy, en 0004.
 
 create or replace function public.create_party(
   p_title text,
@@ -123,7 +170,7 @@ create or replace function public.create_party(
   p_max_people int,
   p_type text,
   p_legal_ok boolean,
-  p_arrival_notes text default null
+  p_arrival_notes text
 ) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
@@ -181,6 +228,12 @@ grant execute on function public.create_party(
 
 -- ───────── 5. get_party: suma aproximados + nota de llegada ────
 
+-- Le agregamos columnas al RETURNS TABLE, y Postgres no deja cambiar el tipo
+-- de retorno con un simple CREATE OR REPLACE: hay que dropearla primero.
+-- Por eso conviene correr esta migración dentro de una transacción (ver el
+-- begin/commit del final): así nadie ve la función a medio existir.
+drop function if exists public.get_party(uuid);
+
 create or replace function public.get_party(p_id uuid)
 returns table (
   id uuid, host_id uuid, host_name text, title text, description text,
@@ -226,3 +279,5 @@ end; $$;
 
 revoke all on function public.get_party(uuid) from public, anon;
 grant execute on function public.get_party(uuid) to authenticated;
+
+commit;
