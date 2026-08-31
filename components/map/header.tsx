@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Bell, LogOut } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { BadgeCheck, Bell, LogOut, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { PinLogo } from '@/components/logo'
 import { useUser } from '@/components/providers'
@@ -13,6 +14,7 @@ interface HeaderProps {
 
 export function Header({ onOpenMyParties }: HeaderProps) {
   const { user, profile, supabase } = useUser()
+  const router = useRouter()
   const [pending, setPending] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -52,7 +54,8 @@ export function Header({ onOpenMyParties }: HeaderProps) {
     toast('Chau 👋 Nos vemos el finde.')
   }
 
-  const initial = user?.user_metadata?.full_name?.[0] ?? user?.email?.[0] ?? '?'
+  const name = profile?.display_name ?? user?.user_metadata?.full_name ?? 'Mi cuenta'
+  const initial = name?.[0] ?? user?.email?.[0] ?? '?'
 
   return (
     <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-2 p-3">
@@ -84,27 +87,41 @@ export function Header({ onOpenMyParties }: HeaderProps) {
               className="glass flex h-11 items-center gap-2 rounded-full pl-1.5 pr-3.5 transition-colors hover:bg-white/10"
               aria-label="Menú de cuenta"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-neon-pink to-neon-cyan font-display text-sm font-bold text-black">
-                {initial.toUpperCase()}
+              <span className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-neon-pink to-neon-cyan font-display text-sm font-bold text-black">
+                {profile?.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  initial.toUpperCase()
+                )}
               </span>
-              <span className="max-w-24 truncate text-xs font-semibold">
-                {user.user_metadata?.full_name ?? 'Mi cuenta'}
-              </span>
+              <span className="max-w-24 truncate text-xs font-semibold">{name}</span>
+              {profile?.verified && <BadgeCheck className="h-4 w-4 shrink-0 text-neon-cyan" />}
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 top-12 w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#141417] shadow-card animate-fade-in">
+              <div className="absolute right-0 top-12 z-30 w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#141417] shadow-card animate-fade-in">
                 <div className="border-b border-white/5 px-4 py-3">
-                  <p className="truncate text-sm font-semibold">
-                    {user.user_metadata?.full_name ?? user.email}
+                  <p className="flex items-center gap-1 truncate text-sm font-semibold">
+                    {name}
+                    {profile?.verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-neon-cyan" />}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
                     Reputación {'⭐'.repeat(Math.min(profile?.reputation ?? 5, 5))}
                   </p>
                 </div>
                 <button
+                  onClick={() => {
+                    setMenuOpen(false)
+                    router.push('/profile')
+                  }}
+                  className="flex w-full items-center gap-2 px-4 py-3 text-sm text-foreground transition-colors hover:bg-white/5"
+                >
+                  <User className="h-4 w-4" /> Mi perfil
+                </button>
+                <button
                   onClick={signOut}
-                  className="flex w-full items-center gap-2 px-4 py-3 text-sm text-zone-red transition-colors hover:bg-white/5"
+                  className="flex w-full items-center gap-2 border-t border-white/5 px-4 py-3 text-sm text-zone-red transition-colors hover:bg-white/5"
                 >
                   <LogOut className="h-4 w-4" /> Cerrar sesión
                 </button>

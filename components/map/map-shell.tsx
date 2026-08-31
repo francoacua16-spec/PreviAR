@@ -13,7 +13,7 @@ import { LoginGate } from './login-gate'
 import { useGeolocation } from './use-geolocation'
 import { CreateDialog } from '@/components/create/create-dialog'
 import { MyPartiesSheet } from '@/components/party/my-parties-sheet'
-import { friendlyError, listCityZones, setUserCity } from '@/lib/api'
+import { friendlyError, listCityZones, listZoneParties, setUserCity } from '@/lib/api'
 import type { City } from '@/lib/zones'
 import type { CityZoneRow } from '@/lib/types'
 
@@ -43,26 +43,50 @@ export function MapShell() {
   const [createOpen, setCreateOpen] = useState(false)
   const [myPartiesOpen, setMyPartiesOpen] = useState(false)
 
-  // Refresca zonas cuando cambia ciudad / usuario / o se crea una previa
-  const refreshZones = useCallback(async () => {
-    if (!user) {
-      setZones([])
-      return
-    }
-    setZonesLoading(true)
-    try {
-      const data = await listCityZones(supabase, city)
-      setZones(data)
-    } catch (e) {
-      toast.error(friendlyError(e))
-    } finally {
-      setZonesLoading(false)
-    }
-  }, [supabase, city, user])
+  // Refresca zonas cuando cambia ciudad / usuario / o se crea una previa.
+  // silent=true se usa en el polling de fondo: no prende el spinner ni tira toasts.
+  const refreshZones = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!user) {
+        setZones([])
+        return
+      }
+      if (!opts?.silent) setZonesLoading(true)
+      try {
+        const data = await listCityZones(supabase, city)
+        setZones(data)
+      } catch (e) {
+        if (!opts?.silent) toast.error(friendlyError(e))
+      } finally {
+        if (!opts?.silent) setZonesLoading(false)
+      }
+    },
+    [supabase, city, user]
+  )
 
   useEffect(() => {
     void refreshZones()
+    // Actualiza previas activas cada 5s sin que el usuario tenga que recargar.
+    const id = setInterval(() => void refreshZones({ silent: true }), 5000)
+    return () => clearInterval(id)
   }, [refreshZones])
+
+  // Si la zona tocada tiene una sola previa, saltamos la lista y vamos directo a ella.
+  async function handleSelectZone(key: string, label: string) {
+    const zoneRow = zones.find((z) => z.zone_text === key)
+    if (Number(zoneRow?.party_count ?? 0) === 1) {
+      try {
+        const rows = await listZoneParties(supabase, city, key, pos)
+        if (rows.length === 1) {
+          router.push(`/party/${rows[0].id}`)
+          return
+        }
+      } catch {
+        // si falla, seguimos al comportamiento normal (abrir la hoja)
+      }
+    }
+    setSelectedZone({ key, label })
+  }
 
   function handleCityChange(next: City) {
     setCity(next)
@@ -89,7 +113,7 @@ export function MapShell() {
           city={city}
           zones={zones}
           pos={pos}
-          onSelectZone={(key, label) => setSelectedZone({ key, label })}
+          onSelectZone={handleSelectZone}
         />
       </div>
 

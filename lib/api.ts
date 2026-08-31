@@ -148,3 +148,37 @@ export async function setUserCity(supabase: SupabaseClient, userId: string, city
     console.error('setUserCity failed', error.message)
   }
 }
+
+/** Sube la foto de perfil al bucket público `avatars` (carpeta `<uid>/`) y devuelve la URL pública. */
+export async function uploadAvatar(
+  supabase: SupabaseClient,
+  userId: string,
+  file: File
+): Promise<string> {
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+  const path = `${userId}/avatar.${ext}`
+  const { error } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, cacheControl: '3600' })
+  if (error) throw error
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+  // Cache-busting: mismo path pero foto nueva, si no el <img> vieja queda cacheada.
+  return `${data.publicUrl}?t=${Date.now()}`
+}
+
+export async function updateProfile(
+  supabase: SupabaseClient,
+  userId: string,
+  fields: { display_name?: string; avatar_url?: string }
+): Promise<void> {
+  const { error } = await supabase.from('users').update(fields).eq('id', userId)
+  if (error) throw error
+}
+
+/** Arranca una sesión de verificación de identidad (Didit) y devuelve la URL a la que redirigir. */
+export async function startVerification(): Promise<string> {
+  const res = await fetch('/api/didit/session', { method: 'POST' })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error || 'No se pudo iniciar la verificación.')
+  return json.url as string
+}

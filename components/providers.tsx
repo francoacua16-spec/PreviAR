@@ -11,6 +11,9 @@ export interface Profile {
   id: string
   city: string | null
   reputation: number
+  display_name: string | null
+  avatar_url: string | null
+  verified: boolean
 }
 
 interface UserContextValue {
@@ -33,7 +36,7 @@ export function Providers({ children }: { children: ReactNode }) {
     async (uid: string) => {
       const { data } = await supabase
         .from('users')
-        .select('id, city, reputation')
+        .select('id, city, reputation, display_name, avatar_url, verified')
         .eq('id', uid)
         .maybeSingle()
       setProfile((data as Profile | null) ?? null)
