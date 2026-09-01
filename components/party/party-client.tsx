@@ -7,12 +7,14 @@ import {
   CheckCircle2,
   Clock,
   Copy,
+  DoorOpen,
   Hourglass,
   Loader2,
   Lock,
   MapPin,
   MessageCircle,
   Navigation,
+  Pencil,
   Users,
   XCircle,
 } from 'lucide-react'
@@ -20,11 +22,22 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useUser } from '@/components/providers'
-import { checkIn, friendlyError, getParty, partyCheckinTimes, requestToJoin } from '@/lib/api'
+import {
+  checkIn,
+  friendlyError,
+  getParty,
+  hostCancelParty,
+  hostMarkFull,
+  leaveParty,
+  partyCheckinTimes,
+  requestToJoin,
+} from '@/lib/api'
 import { formatCountdown, formatWhen, vibeOf } from '@/lib/format'
 import { getCity, zoneLabel } from '@/lib/zones'
 import type { MyStatus, PartyRow } from '@/lib/types'
 import { Chat } from './chat'
+import { EditPartyDialog } from './edit-party-dialog'
+import { FeedbackDialog } from './feedback-dialog'
 import { HostRequests } from './host-requests'
 import { MiniMap } from './mini-map'
 import { ReportDialog } from './report-dialog'
@@ -48,6 +61,9 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
   )
   const [working, setWorking] = useState(false)
   const [checkinTimes, setCheckinTimes] = useState<string[]>([])
+  const [editOpen, setEditOpen] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [leaving, setLeaving] = useState(false)
 
   const isHost = myStatus === 'host'
   const isApproved = isHost || myStatus === 'approved'
@@ -152,6 +168,20 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
     return () => clearInterval(t)
   }, [refreshCountdown])
 
+  // ── Encuesta automática: una vez, cuando termina la previa y vos participaste ──
+  useEffect(() => {
+    if (!(isHost || myStatus === 'approved')) return
+    if (!(cancelled || expired)) return
+    const key = `previar:feedback:${party.id}`
+    try {
+      if (sessionStorage.getItem(key)) return
+      sessionStorage.setItem(key, '1')
+    } catch {
+      // sin sessionStorage, mostramos igual
+    }
+    setFeedbackOpen(true)
+  }, [cancelled, expired, isHost, myStatus, party.id])
+
   // ── Acciones ─────────────────────────────────────────────────
   async function handleRequest() {
     if (working) return
@@ -183,6 +213,49 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
       toast.error(friendlyError(e))
     } finally {
       setWorking(false)
+    }
+  }
+
+  async function handleMarkFull() {
+    if (working) return
+    if (!window.confirm('¿Marcar la previa como llena? Nadie más va a poder pedir entrar.')) return
+    setWorking(true)
+    try {
+      await hostMarkFull(supabase, party.id)
+      setParty((prev) => ({ ...prev, max_people: Math.max(attendees, 1) }))
+      toast.success('Previa marcada como llena 🔒')
+    } catch (e) {
+      toast.error(friendlyError(e))
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function handleCancel() {
+    if (working) return
+    if (!window.confirm('¿Cancelar esta previa? No se puede deshacer.')) return
+    setWorking(true)
+    try {
+      await hostCancelParty(supabase, party.id)
+      toast.success('Previa cancelada')
+      router.push('/')
+    } catch (e) {
+      toast.error(friendlyError(e))
+      setWorking(false)
+    }
+  }
+
+  async function handleLeave() {
+    if (leaving) return
+    if (!window.confirm('¿Abandonar esta previa? Perdés tu lugar.')) return
+    setLeaving(true)
+    try {
+      await leaveParty(supabase, party.id)
+      toast.success('Saliste de la previa 👋')
+      setFeedbackOpen(true)
+    } catch (e) {
+      toast.error(friendlyError(e))
+      setLeaving(false)
     }
   }
 
@@ -467,9 +540,72 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
           <Chat partyId={party.id} currentUserId={currentUserId} />
         )}
 
+        {/* Abandonar previa: invitado aprobado, no el anfitrión */}
+        {myStatus === 'approved' && !isHost && !expired && !cancelled && (
+          <Button
+            variant="outline"
+            className="w-full text-muted-foreground"
+            onClick={() => void handleLeave()}
+            disabled={leaving}
+          >
+            {leaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <DoorOpen className="h-4 w-4" />}
+            Abandonar previa
+          </Button>
+        )}
+
+        {/* Controles de anfitrión */}
+        {isHost && !expired && !cancelled && (
+          <div className="grid grid-cols-2 gap-2.5">
+            <Button variant="outline" className="w-full" onClick={() => setEditOpen(true)}>
+              <Pencil className="h-4 w-4" /> Editar previa
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => void handleMarkFull()}
+              disabled={working}
+            >
+              <Lock className="h-4 w-4" /> Marcar llena
+            </Button>
+            <Button
+              variant="outline"
+              className="col-span-2 w-full text-zone-red hover:text-zone-red"
+              onClick={() => void handleCancel()}
+              disabled={working}
+            >
+              <XCircle className="h-4 w-4" /> Cancelar previa
+            </Button>
+          </div>
+        )}
+
         {/* Panel host */}
         {isHost && !expired && !cancelled && <HostRequests partyId={party.id} />}
       </section>
+
+      <EditPartyDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        party={party}
+        onUpdated={(fields) =>
+          setParty((prev) => ({
+            ...prev,
+            title: fields.title,
+            description: fields.description,
+            arrival_notes: fields.arrivalNotes,
+            whatsapp_number: fields.whatsappNumber,
+            max_people: fields.maxPeople,
+          }))
+        }
+      />
+
+      <FeedbackDialog
+        open={feedbackOpen}
+        onOpenChange={setFeedbackOpen}
+        partyId={party.id}
+        onDone={() => {
+          if (leaving) router.push('/')
+        }}
+      />
 
       <p className="mt-6 text-center text-[10px] leading-relaxed text-muted-foreground/50">
         PreviAR es un tablón entre privados · La previa se autodestruye a las 8 horas ·

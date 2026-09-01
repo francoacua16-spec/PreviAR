@@ -13,6 +13,7 @@ import {
   MessageSquare,
   RotateCcw,
   ShieldAlert,
+  Star,
   Trash2,
   Users,
 } from 'lucide-react'
@@ -22,6 +23,7 @@ import {
   adminBanUser,
   adminDeleteMessage,
   adminDeleteParty,
+  adminListFeedback,
   adminListParties,
   adminListReports,
   adminListUsers,
@@ -42,6 +44,7 @@ import type {
   AdminReportRow,
   AdminStats,
   AdminUserRow,
+  FeedbackRow,
 } from '@/lib/types'
 
 const CITY_LABEL: Record<string, string> = {
@@ -56,12 +59,13 @@ const FILTERS: { id: AdminFilter; label: string }[] = [
   { id: 'reported', label: 'Reportadas' },
 ]
 
-type Tab = 'parties' | 'users' | 'reports'
+type Tab = 'parties' | 'users' | 'reports' | 'feedback'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'parties', label: 'Previas' },
   { id: 'users', label: 'Gente' },
   { id: 'reports', label: 'Reportes' },
+  { id: 'feedback', label: 'Feedback' },
 ]
 
 function fmt(iso: string): string {
@@ -334,6 +338,7 @@ export function AdminClient() {
 
       {tab === 'users' && <UsersTab />}
       {tab === 'reports' && <ReportsTab onJump={() => setTab('parties')} />}
+      {tab === 'feedback' && <FeedbackTab />}
     </div>
   )
 }
@@ -612,6 +617,47 @@ function ReportsTab({ onJump }: { onJump: () => void }) {
           >
             Ver en Previas
           </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function FeedbackTab() {
+  const { supabase } = useUser()
+  const [rows, setRows] = useState<FeedbackRow[]>([])
+  const [fetching, setFetching] = useState(true)
+
+  useEffect(() => {
+    adminListFeedback(supabase)
+      .then(setRows)
+      .catch((e) => toast.error(friendlyError(e)))
+      .finally(() => setFetching(false))
+  }, [supabase])
+
+  if (fetching) return <Spinner />
+  if (rows.length === 0) return <Empty>Todavía no hay feedback.</Empty>
+
+  return (
+    <ul className="flex flex-col gap-2">
+      {rows.map((f) => (
+        <li key={f.id} className="glass rounded-2xl p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="truncate text-sm font-semibold">{f.party_title}</p>
+            <span className="shrink-0 rounded-full bg-white/5 px-1.5 text-[9px] uppercase text-muted-foreground">
+              {f.role === 'host' ? 'anfitrión' : 'invitado'}
+            </span>
+          </div>
+          <div className="mt-1 flex items-center gap-0.5">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Star
+                key={n}
+                className={`h-3.5 w-3.5 ${n <= f.rating ? 'fill-neon-pink text-neon-pink' : 'text-muted-foreground/30'}`}
+              />
+            ))}
+          </div>
+          {f.comment && <p className="mt-1.5 text-xs text-foreground/85">{f.comment}</p>}
+          <p className="mt-1 text-[11px] text-muted-foreground">{fmt(f.created_at)}</p>
         </li>
       ))}
     </ul>
