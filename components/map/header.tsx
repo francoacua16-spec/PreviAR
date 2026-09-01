@@ -130,7 +130,15 @@ export function Header({ onOpenMyParties }: HeaderProps) {
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 top-12 z-30 w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#141417] shadow-card animate-fade-in">
+              <button
+                aria-label="Cerrar menú"
+                onClick={() => setMenuOpen(false)}
+                className="fixed inset-0 z-40 cursor-default"
+              />
+            )}
+
+            {menuOpen && (
+              <div className="fixed right-3 top-[var(--header-h)] z-50 w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#141417] shadow-card animate-fade-in">
                 <div className="border-b border-white/5 px-4 py-3">
                   <p className="flex items-center gap-1 truncate text-sm font-semibold">
                     {name}

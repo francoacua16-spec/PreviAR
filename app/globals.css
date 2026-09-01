@@ -10,6 +10,15 @@
     --foreground: #f5f5f7;
     --primary: #ff2d92;
     --accent: #00f5ff;
+    /* Alto real del header flotante: fuente única de verdad para todo lo que
+       tiene que quedar debajo (city-picker, dropdown de cuenta). */
+    --header-h: 4.75rem;
+  }
+
+  @media (min-width: 640px) {
+    :root {
+      --header-h: 5.5rem;
+    }
   }
 
   * {

@@ -136,7 +136,7 @@ export function MapShell() {
       <CityPicker city={city} onChange={handleCityChange} />
 
       {/* Leyenda de colores */}
-      <div className="pointer-events-none absolute bottom-24 left-4 z-10">
+      <div className="pointer-events-none absolute bottom-24 left-4 z-10 sm:bottom-8 sm:left-8 md:left-10">
         <div className="glass rounded-full px-3.5 py-2 text-[10px] font-semibold text-muted-foreground">
           🟢 &lt;10 km · 🟡 10–30 km · 🔴 +30 km
         </div>
@@ -145,7 +145,7 @@ export function MapShell() {
       {/* FAB */}
       <button
         onClick={handleCreateClick}
-        className="absolute bottom-5 right-4 z-20 flex h-14 items-center gap-2 rounded-full bg-primary px-6 font-display text-sm font-bold text-primary-foreground shadow-neon-pink transition-all hover:bg-primary/90 active:scale-95"
+        className="absolute bottom-5 right-4 z-20 flex h-14 items-center gap-2 rounded-full bg-primary px-6 font-display text-sm font-bold text-primary-foreground shadow-neon-pink transition-all hover:bg-primary/90 active:scale-95 sm:bottom-8 sm:right-8 md:bottom-10 md:right-10"
       >
         <Plus className="h-5 w-5" strokeWidth={3} />
         Crear Previa

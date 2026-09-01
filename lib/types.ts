@@ -41,12 +41,30 @@ export interface PartyRow {
   lng_hidden: number | null
   /** Cómo llegar, escrito por el host. Solo host/aprobados. */
   arrival_notes: string | null
+  /** WhatsApp del host. Solo visible para aprobados (no el propio host). */
+  whatsapp_number: string | null
   /** Zona aproximada ("Campichuelo al 1300"). Visible para todos. */
   approx_area: string | null
   lat_approx: number | null
   lng_approx: number | null
   my_status: MyStatus
   checked_in: boolean
+}
+
+/** Row de party_checkin_times */
+export interface CheckinTimeRow {
+  checked_in_at: string
+}
+
+/** Row de admin_list_feedback */
+export interface FeedbackRow {
+  id: string
+  party_id: string
+  party_title: string
+  role: 'host' | 'guest'
+  rating: number
+  comment: string | null
+  created_at: string
 }
 
 /** Row de get_party_requests */
@@ -95,6 +113,7 @@ export interface AdminPartyRow {
   type: PartyType
   address_hidden: string | null
   arrival_notes: string | null
+  whatsapp_number: string | null
   lat_hidden: number | null
   lng_hidden: number | null
   max_people: number
@@ -175,6 +194,7 @@ export interface CreatePartyInput {
   zone: string
   address: string | null
   arrivalNotes: string | null
+  whatsappNumber: string | null
   lat: number | null
   lng: number | null
   startAt: string

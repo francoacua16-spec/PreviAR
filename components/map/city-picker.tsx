@@ -12,8 +12,8 @@ export function CityPicker({ city, onChange }: CityPickerProps) {
   // z-40: por encima del LoginGate (z-30). Sin sesión el mapa no se toca,
   // pero cambiar de ciudad sí, si no los botones parecen rotos.
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-[64px] z-40 flex justify-center px-4">
-      <div className="pointer-events-auto no-scrollbar glass flex max-w-full gap-1 overflow-x-auto rounded-full p-1">
+    <div className="pointer-events-none absolute inset-x-0 top-[var(--header-h)] z-[35] mt-2 flex justify-center px-4">
+      <div className="pointer-events-auto no-scrollbar glass flex max-w-full gap-1 overflow-x-auto rounded-full p-1 sm:max-w-md md:max-w-lg">
         {CITIES.map((c) => {
           const active = c.key === city
           return (

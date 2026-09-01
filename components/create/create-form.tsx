@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { CalendarClock, Loader2, Lock, PartyPopper, Users } from 'lucide-react'
+import { CalendarClock, Loader2, Lock, MessageCircle, PartyPopper, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,6 +32,7 @@ export function CreateForm({ city, onCreated }: CreateFormProps) {
   const [zone, setZone] = useState(cityDef.zones[0].key)
   const [address, setAddress] = useState('')
   const [arrivalNotes, setArrivalNotes] = useState('')
+  const [whatsapp, setWhatsapp] = useState('')
   const [lat, setLat] = useState<number | null>(null)
   const [lng, setLng] = useState<number | null>(null)
   const [startAt, setStartAt] = useState(() => toDateTimeLocalValue(new Date(Date.now() + 3 * 3600_000)))
@@ -60,6 +61,10 @@ export function CreateForm({ city, onCreated }: CreateFormProps) {
       toast.error('Elegí fecha y hora de inicio.')
       return
     }
+    if (whatsapp.trim() && !/^\+?[0-9]{8,15}$/.test(whatsapp.trim())) {
+      toast.error('WhatsApp inválido: solo dígitos, sin espacios ni guiones (8 a 15 números).')
+      return
+    }
     if (needsLegal && !legalOk) {
       setLegalOpen(true)
       return
@@ -79,6 +84,7 @@ export function CreateForm({ city, onCreated }: CreateFormProps) {
         zone,
         address: address.trim() ? address.trim() : null,
         arrivalNotes: arrivalNotes.trim() ? arrivalNotes.trim() : null,
+        whatsappNumber: whatsapp.trim() ? whatsapp.trim() : null,
         lat: lat ?? (zoneDef ? zoneDef.lat : null),
         lng: lng ?? (zoneDef ? zoneDef.lng : null),
         startAt: new Date(startAt).toISOString(),
@@ -190,6 +196,25 @@ export function CreateForm({ city, onCreated }: CreateFormProps) {
             placeholder="Casa en la esquina de Campichuelo y El Ciprés, portón negro. Timbre 2B."
             maxLength={200}
           />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="party-whatsapp">WhatsApp (opcional)</Label>
+          <div className="relative">
+            <MessageCircle className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="party-whatsapp"
+              inputMode="tel"
+              value={whatsapp}
+              onChange={(e) => setWhatsapp(e.target.value)}
+              placeholder="5492211234567"
+              maxLength={16}
+              className="pl-9"
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground/70">
+            Se revela solo a aprobados, para que te escriban directo. Sin espacios ni guiones.
+          </p>
         </div>
 
         <div className="space-y-1.5">

@@ -20,7 +20,7 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useUser } from '@/components/providers'
-import { checkIn, friendlyError, requestToJoin } from '@/lib/api'
+import { checkIn, friendlyError, getParty, partyCheckinTimes, requestToJoin } from '@/lib/api'
 import { formatCountdown, formatWhen, vibeOf } from '@/lib/format'
 import { getCity, zoneLabel } from '@/lib/zones'
 import type { MyStatus, PartyRow } from '@/lib/types'
@@ -39,7 +39,7 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
   const { supabase } = useUser()
   const router = useRouter()
 
-  const [party] = useState<PartyRow>(initialParty)
+  const [party, setParty] = useState<PartyRow>(initialParty)
   const [myStatus, setMyStatus] = useState<MyStatus>(initialParty.my_status)
   const [checkedIn, setCheckedIn] = useState(initialParty.checked_in)
   const [attendees, setAttendees] = useState(initialParty.attendees_count)
@@ -47,13 +47,31 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
     new Date(initialParty.expires_at).getTime() <= Date.now()
   )
   const [working, setWorking] = useState(false)
+  const [checkinTimes, setCheckinTimes] = useState<string[]>([])
 
   const isHost = myStatus === 'host'
   const isApproved = isHost || myStatus === 'approved'
+  const cancelled = party.status === 'cancelled'
   const cityDef = getCity(party.city)
   const vibe = vibeOf(attendees, party.max_people)
 
-  // ── Realtime: contador de asistentes + mi solicitud ──────────
+  // ── Registro horario de check-ins: lo ve cualquiera, sin nombres ─
+  useEffect(() => {
+    let active = true
+    partyCheckinTimes(supabase, party.id)
+      .then((times) => active && setCheckinTimes(times))
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [supabase, party.id])
+
+  // ── Realtime: contador de asistentes + mi solicitud + registro ──
+  // OJO seguridad: Realtime manda el payload de UPDATE según la RLS de
+  // SELECT (activa y no expirada), no según el GRANT SELECT (columnas) que
+  // sí filtra queries normales. Por eso acá solo se mergean columnas de esa
+  // misma whitelist — nunca address_hidden/arrival_notes/whatsapp_number/
+  // lat_hidden/lng_hidden, que solo llegan gateados vía getParty() (poll).
   useEffect(() => {
     const channel = supabase
       .channel(`party-${party.id}`)
@@ -65,7 +83,19 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
           table: 'parties',
           filter: `id=eq.${party.id}`,
         },
-        (payload) => setAttendees(payload.new.attendees_count)
+        (payload) => {
+          const p = payload.new as Record<string, unknown>
+          setAttendees(p.attendees_count as number)
+          setParty((prev) => ({
+            ...prev,
+            title: (p.title as string) ?? prev.title,
+            description: (p.description as string | null) ?? prev.description,
+            status: (p.status as string) ?? prev.status,
+            max_people: (p.max_people as number) ?? prev.max_people,
+            start_at: (p.start_at as string) ?? prev.start_at,
+            expires_at: (p.expires_at as string) ?? prev.expires_at,
+          }))
+        }
       )
       .on(
         'postgres_changes',
@@ -83,6 +113,13 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
               toast.success('¡Te aprobaron! 🔓 Ya ves la dirección exacta.')
             }
           }
+          if (payload.new.checked_in && payload.new.checked_in_at) {
+            setCheckinTimes((prev) =>
+              prev.includes(payload.new.checked_in_at)
+                ? prev
+                : [...prev, payload.new.checked_in_at as string].sort()
+            )
+          }
         }
       )
       .subscribe()
@@ -91,6 +128,18 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
       supabase.removeChannel(channel)
     }
   }, [supabase, party.id, currentUserId])
+
+  // ── Poll de respaldo cada 20s: re-corre el gating real server-side ──
+  useEffect(() => {
+    const id = setInterval(() => {
+      getParty(supabase, party.id)
+        .then((fresh) => {
+          if (fresh) setParty(fresh)
+        })
+        .catch(() => {})
+    }, 20_000)
+    return () => clearInterval(id)
+  }, [supabase, party.id])
 
   // ── Cuenta regresiva ─────────────────────────────────────────
   const refreshCountdown = useCallback(() => {
@@ -278,13 +327,28 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
 
       {/* Estado según mi relación con la previa */}
       <section className="mt-3 space-y-3">
-        {expired && (
+        {cancelled && (
+          <div className="glass rounded-2xl p-4 text-center text-sm text-muted-foreground">
+            🚫 El anfitrión canceló esta previa.
+          </div>
+        )}
+
+        {!cancelled && expired && (
           <div className="glass rounded-2xl p-4 text-center text-sm text-muted-foreground">
             💨 Esta previa expiró y se autodestruyó. No queda rastro.
           </div>
         )}
 
-        {!expired && !isApproved && myStatus === 'none' && (
+        {checkinTimes.length > 0 && !cancelled && (
+          <div className="glass rounded-2xl p-3 text-center text-xs text-muted-foreground">
+            🕐 {checkinTimes
+              .map((t) => new Date(t).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }))
+              .join(', ')}{' '}
+            — {checkinTimes.length} persona{checkinTimes.length === 1 ? '' : 's'} ya llegaron
+          </div>
+        )}
+
+        {!cancelled && !expired && !isApproved && myStatus === 'none' && (
           <div className="glass rounded-2xl p-4 text-center animate-fade-up">
             <Lock className="mx-auto mb-2 h-6 w-6 text-neon-pink" />
             <p className="text-sm leading-relaxed text-foreground/85">
@@ -297,7 +361,7 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
           </div>
         )}
 
-        {!expired && !isApproved && myStatus === 'pending' && (
+        {!cancelled && !expired && !isApproved && myStatus === 'pending' && (
           <div className="glass rounded-2xl p-4 text-center">
             <Hourglass className="mx-auto mb-2 h-6 w-6 animate-pulse text-zone-yellow" />
             <p className="text-sm leading-relaxed">
@@ -307,7 +371,7 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
           </div>
         )}
 
-        {!expired && !isApproved && myStatus === 'rejected' && (
+        {!cancelled && !expired && !isApproved && myStatus === 'rejected' && (
           <div className="glass rounded-2xl p-4 text-center">
             <XCircle className="mx-auto mb-2 h-6 w-6 text-zone-red" />
             <p className="text-sm leading-relaxed text-muted-foreground">
@@ -318,7 +382,7 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
         )}
 
         {/* Dirección: SOLO aprobados/host */}
-        {isApproved && (
+        {isApproved && !cancelled && (
           <div className="space-y-3 animate-fade-up">
             <div className="rounded-2xl border border-neon-pink/25 bg-neon-pink/[0.04] p-4">
               <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-neon-pink">
@@ -350,6 +414,17 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
               <MiniMap lat={party.lat_hidden} lng={party.lng_hidden} />
             )}
 
+            {party.whatsapp_number && !isHost && (
+              <a
+                href={`https://wa.me/${party.whatsapp_number.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 rounded-xl border border-zone-green/30 bg-zone-green/10 p-3 text-sm font-bold text-zone-green transition-colors hover:bg-zone-green/15"
+              >
+                <MessageCircle className="h-4 w-4" /> Mandale un WhatsApp
+              </a>
+            )}
+
             {!expired && (
               <Button
                 variant={checkedIn ? 'secondary' : 'accent'}
@@ -372,7 +447,7 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
         )}
 
         {/* Compartir */}
-        {!expired && (
+        {!expired && !cancelled && (
           <div className="grid grid-cols-2 gap-2.5">
             <Button
               variant="outline"
@@ -388,12 +463,12 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
         )}
 
         {/* Chat: solo miembros */}
-        {isApproved && !expired && (
+        {isApproved && !expired && !cancelled && (
           <Chat partyId={party.id} currentUserId={currentUserId} />
         )}
 
         {/* Panel host */}
-        {isHost && !expired && <HostRequests partyId={party.id} />}
+        {isHost && !expired && !cancelled && <HostRequests partyId={party.id} />}
       </section>
 
       <p className="mt-6 text-center text-[10px] leading-relaxed text-muted-foreground/50">

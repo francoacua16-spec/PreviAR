@@ -10,8 +10,10 @@ import type {
   AdminReportRow,
   AdminStats,
   AdminUserRow,
+  CheckinTimeRow,
   CityZoneRow,
   CreatePartyInput,
+  FeedbackRow,
   MyPartyRow,
   PartyRequestRow,
   PartyRow,
@@ -36,6 +38,12 @@ export function friendlyError(error: unknown): string {
   if (msg.includes('BAD_DATE')) return 'Elegí una fecha de inicio a futuro.'
   if (msg.includes('BAD_CAPACITY')) return 'Capacidad inválida (1 a 500 personas).'
   if (msg.includes('BAD_REASON')) return 'Contanos un poco más el motivo.'
+  if (msg.includes('BAD_WHATSAPP')) return 'Número de WhatsApp inválido (solo dígitos, 8 a 15).'
+  if (msg.includes('CAPACITY_BELOW_ATTENDEES')) return 'No podés bajar el máximo por debajo de quienes ya confirmaron.'
+  if (msg.includes('HOST_CANNOT_LEAVE')) return 'Sos el anfitrión: cancelá la previa en vez de abandonarla.'
+  if (msg.includes('NOT_PARTICIPANT')) return 'No participaste de esta previa.'
+  if (msg.includes('NOT_FOUND')) return 'Esa previa no existe.'
+  if (msg.includes('BAD_RATING')) return 'Elegí un puntaje de 1 a 5.'
   return msg || 'Algo salió mal. Probá de nuevo.'
 }
 
@@ -116,20 +124,78 @@ export async function createParty(
   const { data, error } = await supabase.rpc('create_party', {
     ...base,
     p_arrival_notes: input.arrivalNotes,
+    p_whatsapp_number: input.whatsappNumber,
   })
 
   // PGRST202 = no existe una función con esa firma. Pasa si el código ya está
-  // deployado pero la migración 0003 todavía no corrió: ahí la única firma en
-  // la base es la vieja de 11 args. Reintentamos sin la nota para no dejar de
-  // crear previas durante esa ventana (se pierde arrival_notes, no la previa).
+  // deployado pero la migración 0006 todavía no corrió: ahí la firma en la
+  // base todavía no acepta p_whatsapp_number. Reintentamos sin ese param para
+  // no dejar de crear previas durante esa ventana (se pierde el WhatsApp, no la previa).
   if (error) {
     if (error.code !== 'PGRST202') throw error
-    const retry = await supabase.rpc('create_party', base)
+    const retry = await supabase.rpc('create_party', { ...base, p_arrival_notes: input.arrivalNotes })
     if (retry.error) throw retry.error
     return retry.data as string
   }
 
   return data as string
+}
+
+export async function partyCheckinTimes(supabase: SupabaseClient, partyId: string): Promise<string[]> {
+  const { data, error } = await supabase.rpc('party_checkin_times', { p_party: partyId })
+  if (error) throw error
+  return ((data as CheckinTimeRow[] | null) ?? []).map((r) => r.checked_in_at)
+}
+
+export async function hostUpdateParty(
+  supabase: SupabaseClient,
+  partyId: string,
+  fields: { title: string; description: string | null; arrivalNotes: string | null; whatsappNumber: string | null; maxPeople: number }
+): Promise<void> {
+  const { error } = await supabase.rpc('host_update_party', {
+    p_id: partyId,
+    p_title: fields.title,
+    p_description: fields.description,
+    p_arrival_notes: fields.arrivalNotes,
+    p_whatsapp_number: fields.whatsappNumber,
+    p_max_people: fields.maxPeople,
+  })
+  if (error) throw error
+}
+
+export async function hostCancelParty(supabase: SupabaseClient, partyId: string): Promise<void> {
+  const { error } = await supabase.rpc('host_cancel_party', { p_id: partyId })
+  if (error) throw error
+}
+
+export async function hostMarkFull(supabase: SupabaseClient, partyId: string): Promise<void> {
+  const { error } = await supabase.rpc('host_mark_full', { p_id: partyId })
+  if (error) throw error
+}
+
+export async function submitPartyFeedback(
+  supabase: SupabaseClient,
+  partyId: string,
+  rating: number,
+  comment: string | null
+): Promise<void> {
+  const { error } = await supabase.rpc('submit_party_feedback', {
+    p_party: partyId,
+    p_rating: rating,
+    p_comment: comment,
+  })
+  if (error) throw error
+}
+
+export async function leaveParty(supabase: SupabaseClient, partyId: string): Promise<void> {
+  const { error } = await supabase.rpc('leave_party', { p_party: partyId })
+  if (error) throw error
+}
+
+export async function adminListFeedback(supabase: SupabaseClient): Promise<FeedbackRow[]> {
+  const { data, error } = await supabase.rpc('admin_list_feedback')
+  if (error) throw error
+  return (data as FeedbackRow[] | null) ?? []
 }
 
 export async function countPendingForMe(supabase: SupabaseClient): Promise<number> {
