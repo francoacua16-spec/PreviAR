@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { PinLogo, Wordmark } from '@/components/logo'
+import { Wordmark } from '@/components/logo'
 import { LoginButton } from '@/components/login-button'
 import { CITIES } from '@/lib/zones'
 
@@ -18,7 +18,7 @@ export default function LoginPage({
   const authFailed = searchParams.error === 'auth'
 
   return (
-    <main className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 py-12">
+    <main className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 pb-28 pt-12">
       {/* Glow de marca */}
       <div
         aria-hidden
@@ -30,15 +30,7 @@ export default function LoginPage({
       />
 
       <div className="relative flex w-full max-w-sm flex-col items-center animate-fade-up">
-        <Link href="/" className="mb-10 flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-3.5 w-3.5" /> Volver al mapa
-        </Link>
-
-        <div className="mb-8 animate-pulse-glow">
-          <PinLogo className="h-24 w-24" />
-        </div>
-
-        <Wordmark className="mb-3 scale-125" />
+        <Wordmark className="mb-3 h-32 animate-pulse-glow" />
 
         <h1 className="mt-6 text-center font-display text-2xl font-bold leading-snug tracking-tight">
           Las previas reales,
@@ -78,6 +70,14 @@ export default function LoginPage({
           eventos. Al usar la app aceptás ser responsable de tu propia joda.
         </p>
       </div>
+
+      <Link
+        href="/"
+        className="press glass-chip fixed bottom-[max(env(safe-area-inset-bottom),1rem)] left-4 z-20 flex h-11 items-center gap-2 rounded-full pl-3.5 pr-4 text-sm font-medium on-glass"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Volver al mapa
+      </Link>
     </main>
   )
 }

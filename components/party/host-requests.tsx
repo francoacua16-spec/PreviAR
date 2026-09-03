@@ -72,14 +72,14 @@ export function HostRequests({ partyId }: { partyId: string }) {
     <div className="glass rounded-2xl p-4">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="flex items-center gap-2 font-display text-sm font-bold uppercase tracking-wider">
-          <UserRound className="h-4 w-4 text-neon-pink" /> Solicitudes
+          <UserRound className="h-4 w-4 text-neon-violet" /> Solicitudes
         </h2>
         {pending.length > 0 && <Badge variant="warning">{pending.length} pendientes</Badge>}
       </div>
 
       {loading && (
         <div className="flex justify-center py-6">
-          <Loader2 className="h-5 w-5 animate-spin text-neon-pink" />
+          <Loader2 className="h-5 w-5 animate-spin text-neon-violet" />
         </div>
       )}
 
@@ -95,7 +95,7 @@ export function HostRequests({ partyId }: { partyId: string }) {
             key={r.id}
             className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-neon-pink to-neon-cyan font-display text-xs font-bold text-black">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-neon-violet to-neon-lilac font-display text-xs font-bold text-black">
               {(r.user_name[0] ?? '?').toUpperCase()}
             </span>
             <div className="min-w-0 flex-1">

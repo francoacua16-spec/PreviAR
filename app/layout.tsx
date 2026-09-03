@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Sora, Unbounded } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/providers'
+import { TabBar } from '@/components/shell/tab-bar'
 
 const sora = Sora({
   subsets: ['latin'],
@@ -48,7 +49,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" className="dark">
       <body className={`${sora.variable} ${unbounded.variable} min-h-dvh`}>
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          {/* Se monta una sola vez y decide sola si aparece: así ninguna página
+              tiene que acordarse de incluirla ni de ocultarla. */}
+          <TabBar />
+        </Providers>
       </body>
     </html>
   )

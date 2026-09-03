@@ -80,7 +80,7 @@ export function ProfileClient() {
   }
 
   return (
-    <div className="min-h-dvh bg-background px-4 py-6">
+    <div className="pb-tabbar min-h-dvh bg-background px-4 py-6">
       <button
         onClick={() => router.back()}
         className="glass mb-6 flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold text-foreground"
@@ -93,7 +93,7 @@ export function ProfileClient() {
       <div className="glass mb-4 flex flex-col items-center gap-4 rounded-3xl p-6">
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-neon-pink to-neon-cyan"
+          className="group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-neon-violet to-neon-lilac"
           aria-label="Cambiar foto de perfil"
         >
           {avatarPreview ? (
@@ -123,7 +123,7 @@ export function ProfileClient() {
           onChange={(e) => setDisplayName(e.target.value)}
           placeholder="Tu nombre"
           maxLength={40}
-          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-semibold text-foreground outline-none focus:border-neon-pink"
+          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-semibold text-foreground outline-none focus:border-neon-violet"
         />
 
         <button
@@ -139,7 +139,7 @@ export function ProfileClient() {
       <div className="glass rounded-3xl p-6">
         <h2 className="mb-1 text-sm font-semibold">Verificación de identidad</h2>
         {profile?.verified ? (
-          <div className="flex items-center gap-2 text-sm text-neon-cyan">
+          <div className="flex items-center gap-2 text-sm text-neon-lilac">
             <BadgeCheck className="h-5 w-5" /> Perfil verificado
           </div>
         ) : (

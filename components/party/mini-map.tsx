@@ -22,7 +22,7 @@ export function MiniMap({ lat, lng, approximate }: MiniMapProps) {
       className={
         approximate
           ? 'relative h-44 w-full overflow-hidden rounded-2xl border border-white/10'
-          : 'relative h-44 w-full overflow-hidden rounded-2xl border border-neon-pink/30'
+          : 'relative h-44 w-full overflow-hidden rounded-2xl border border-neon-violet/30'
       }
     >
       {/* z-0: encierra los panes de Leaflet para que no tapen el cartel. */}
@@ -33,7 +33,7 @@ export function MiniMap({ lat, lng, approximate }: MiniMapProps) {
         className={
           approximate
             ? 'pointer-events-none absolute left-2.5 top-2.5 z-10 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground backdrop-blur'
-            : 'pointer-events-none absolute left-2.5 top-2.5 z-10 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-neon-pink backdrop-blur'
+            : 'pointer-events-none absolute left-2.5 top-2.5 z-10 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-neon-violet backdrop-blur'
         }
       >
         {approximate ? 'Zona aproximada' : 'Pin exacto · solo vos y los aprobados'}

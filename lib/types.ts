@@ -19,6 +19,38 @@ export interface ZonePartyRow {
   expires_at: string
   distance_m: number | null
   my_status: MyStatus
+  genres: string[]
+  venue_type: string | null
+}
+
+/** Row de search_parties */
+export interface SearchPartyRow {
+  id: string
+  title: string
+  city: 'la_plata' | 'caba' | 'bariloche'
+  zone_text: string
+  type: PartyType
+  max_people: number
+  attendees_count: number
+  start_at: string
+  expires_at: string
+  genres: string[]
+  venue_type: string | null
+  approx_area: string | null
+  distance_m: number | null
+  my_status: MyStatus
+}
+
+/** Row de list_song_requests */
+export interface SongRequestRow {
+  id: string
+  user_id: string
+  user_name: string
+  title: string
+  artist: string | null
+  genre: string
+  created_at: string
+  is_mine: boolean
 }
 
 /** Row de get_party */
@@ -47,6 +79,10 @@ export interface PartyRow {
   approx_area: string | null
   lat_approx: number | null
   lng_approx: number | null
+  /** Géneros de la previa. Manda qué temas se le pueden pedir al DJ. */
+  genres: string[]
+  /** Dónde es: casa, quinta, barco, yate… Null en previas viejas. */
+  venue_type: string | null
   my_status: MyStatus
   checked_in: boolean
 }
@@ -126,6 +162,21 @@ export interface AdminPartyRow {
   status: string
   /** Activa y sin expirar: lo que la gente ve en el mapa ahora mismo. */
   is_live: boolean
+  genres: string[]
+  venue_type: string | null
+  song_count: number
+}
+
+/** Row de admin_party_songs */
+export interface AdminSongRow {
+  id: string
+  user_id: string
+  user_name: string
+  user_email: string | null
+  title: string
+  artist: string | null
+  genre: string
+  created_at: string
 }
 
 export interface AdminStats {
@@ -192,13 +243,18 @@ export interface CreatePartyInput {
   description: string | null
   city: 'la_plata' | 'caba' | 'bariloche'
   zone: string
-  address: string | null
+  /** Obligatoria: sin dirección la previa no sirve. */
+  address: string
   arrivalNotes: string | null
   whatsappNumber: string | null
-  lat: number | null
-  lng: number | null
+  /** Obligatorios: el pin exacto que eligió el host (geocodificado o arrastrado). */
+  lat: number
+  lng: number
   startAt: string
   maxPeople: number
   type: PartyType
   legalOk: boolean
+  /** Al menos uno. */
+  genres: string[]
+  venueType: string | null
 }

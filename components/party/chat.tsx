@@ -85,7 +85,7 @@ export function Chat({ partyId, currentUserId }: ChatProps) {
   return (
     <div className="glass rounded-2xl overflow-hidden">
       <div className="flex items-center gap-2 border-b border-white/5 px-4 py-3">
-        <Sparkles className="h-4 w-4 text-neon-cyan" />
+        <Sparkles className="h-4 w-4 text-neon-lilac" />
         <span className="text-xs font-bold uppercase tracking-wider">Chat efímero</span>
         <span className="ml-auto text-[10px] text-muted-foreground/70">
           Se borra cuando expira la previa
@@ -111,7 +111,7 @@ export function Chat({ partyId, currentUserId }: ChatProps) {
                 )}
               >
                 {!mine && (
-                  <p className="mb-0.5 text-[10px] font-bold text-neon-cyan">
+                  <p className="mb-0.5 text-[10px] font-bold text-neon-lilac">
                     {m.sender_name ?? 'Alguien'}
                   </p>
                 )}
@@ -143,7 +143,7 @@ export function Chat({ partyId, currentUserId }: ChatProps) {
         <button
           type="submit"
           disabled={!content.trim() || sending}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-black shadow-neon-cyan transition-all active:scale-90 disabled:opacity-40"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-black shadow-neon-lilac transition-all active:scale-90 disabled:opacity-40"
           aria-label="Enviar mensaje"
         >
           <Send className="h-4 w-4" />

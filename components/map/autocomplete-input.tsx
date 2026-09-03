@@ -89,7 +89,7 @@ export function AutocompleteInput({ value, onChange, onPlaceSelected }: Autocomp
                 className="flex w-full items-start gap-2.5 px-3.5 py-3 text-left text-sm transition-colors hover:bg-white/5"
                 onClick={() => pick(s)}
               >
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-neon-pink" />
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-neon-violet" />
                 <span className="leading-snug">{s.label}</span>
               </button>
             </li>

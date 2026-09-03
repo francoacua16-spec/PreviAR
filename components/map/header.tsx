@@ -4,15 +4,11 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { BadgeCheck, Bell, LogOut, Shield, User } from 'lucide-react'
 import { toast } from 'sonner'
-import { PinLogo } from '@/components/logo'
+import { Wordmark } from '@/components/logo'
 import { useUser } from '@/components/providers'
 import { adminUnseenCount, countPendingForMe } from '@/lib/api'
 
-interface HeaderProps {
-  onOpenMyParties: () => void
-}
-
-export function Header({ onOpenMyParties }: HeaderProps) {
+export function Header() {
   const { user, profile, isAdmin, supabase } = useUser()
   const router = useRouter()
   const [pending, setPending] = useState(0)
@@ -82,25 +78,31 @@ export function Header({ onOpenMyParties }: HeaderProps) {
   const name = profile?.display_name ?? user?.user_metadata?.full_name ?? 'Mi cuenta'
   const initial = name?.[0] ?? user?.email?.[0] ?? '?'
 
+  // z-[35] igual que el selector de ciudad: sin sesión el LoginGate (z-30)
+  // difumina lo que queda abajo, y tener el logo borroso con las ciudades
+  // nítidas hacía ver la barra superior como un error de render.
   return (
-    <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-2 p-3">
-      <div className="pointer-events-auto glass flex h-11 items-center gap-2 rounded-full px-3.5">
-        <PinLogo className="h-6 w-6" />
-        <span className="font-display text-sm font-bold brand-gradient-text">PreviAR</span>
+    <header className="pointer-events-none absolute inset-x-0 top-0 z-[35] flex items-center gap-2 p-3">
+      <div className="pointer-events-auto glass flex h-11 items-center rounded-full px-3.5">
+        <Wordmark className="h-7" />
       </div>
 
       <div className="flex-1" />
 
       {user && (
         <>
+          {/* Atajo a la misma sección que la barra inferior: "mis previas" vive
+              en un solo lugar, no en una hoja aparte que duplicaba la lista. */}
           <button
-            onClick={onOpenMyParties}
-            className="pointer-events-auto glass relative flex h-11 w-11 items-center justify-center rounded-full text-foreground transition-colors hover:bg-white/10"
-            aria-label="Mis previas y solicitudes"
+            onClick={() => router.push('/mis-previas')}
+            className="press pointer-events-auto glass relative flex h-11 w-11 items-center justify-center rounded-full text-foreground transition-colors hover:bg-white/10"
+            aria-label={
+              pending > 0 ? `Mis previas, ${pending} solicitudes por aprobar` : 'Mis previas'
+            }
           >
             <Bell className="h-5 w-5" />
             {pending > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground shadow-neon-pink">
+              <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground shadow-neon-violet">
                 {pending}
               </span>
             )}
@@ -112,7 +114,7 @@ export function Header({ onOpenMyParties }: HeaderProps) {
               className="glass flex h-11 items-center gap-2 rounded-full pl-1.5 pr-3.5 transition-colors hover:bg-white/10"
               aria-label="Menú de cuenta"
             >
-              <span className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-neon-pink to-neon-cyan font-display text-sm font-bold text-black">
+              <span className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-neon-violet to-neon-lilac font-display text-sm font-bold text-black">
                 {profile?.avatar_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
@@ -121,9 +123,9 @@ export function Header({ onOpenMyParties }: HeaderProps) {
                 )}
               </span>
               <span className="max-w-24 truncate text-xs font-semibold">{name}</span>
-              {profile?.verified && <BadgeCheck className="h-4 w-4 shrink-0 text-neon-cyan" />}
+              {profile?.verified && <BadgeCheck className="h-4 w-4 shrink-0 text-neon-lilac" />}
               {isAdmin && unseen > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-neon-cyan px-1 text-[10px] font-bold text-black">
+                <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-neon-lilac px-1 text-[10px] font-bold text-black">
                   {unseen}
                 </span>
               )}
@@ -142,7 +144,7 @@ export function Header({ onOpenMyParties }: HeaderProps) {
                 <div className="border-b border-white/5 px-4 py-3">
                   <p className="flex items-center gap-1 truncate text-sm font-semibold">
                     {name}
-                    {profile?.verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-neon-cyan" />}
+                    {profile?.verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-neon-lilac" />}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
                     Reputación {'⭐'.repeat(Math.min(profile?.reputation ?? 5, 5))}
@@ -164,11 +166,11 @@ export function Header({ onOpenMyParties }: HeaderProps) {
                       setUnseen(0)
                       router.push('/admin')
                     }}
-                    className="flex w-full items-center gap-2 border-t border-white/5 px-4 py-3 text-sm text-neon-cyan transition-colors hover:bg-white/5"
+                    className="flex w-full items-center gap-2 border-t border-white/5 px-4 py-3 text-sm text-neon-lilac transition-colors hover:bg-white/5"
                   >
                     <Shield className="h-4 w-4" /> Panel de control
                     {unseen > 0 && (
-                      <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-neon-cyan px-1 text-[10px] font-bold text-black">
+                      <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-neon-lilac px-1 text-[10px] font-bold text-black">
                         {unseen}
                       </span>
                     )}

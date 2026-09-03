@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   BadgeCheck,
   Ban,
+  Disc3,
   Eye,
   Flag,
   Loader2,
@@ -29,6 +30,7 @@ import {
   adminListUsers,
   adminMarkSeen,
   adminPartyPeople,
+  adminPartySongs,
   adminPurgeParty,
   adminReadChat,
   adminRestoreParty,
@@ -42,10 +44,12 @@ import type {
   AdminPartyRow,
   AdminPersonRow,
   AdminReportRow,
+  AdminSongRow,
   AdminStats,
   AdminUserRow,
   FeedbackRow,
 } from '@/lib/types'
+import { genreEmoji, genreLabel, venueDef } from '@/lib/constants'
 
 const CITY_LABEL: Record<string, string> = {
   la_plata: 'La Plata',
@@ -183,7 +187,7 @@ export function AdminClient() {
   }
 
   return (
-    <div className="min-h-dvh bg-background px-4 py-6">
+    <div className="pb-tabbar min-h-dvh bg-background px-4 py-6">
       <button
         onClick={() => router.push('/')}
         className="glass mb-6 flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold text-foreground"
@@ -259,7 +263,7 @@ export function AdminClient() {
                     <span
                       className={
                         p.is_live
-                          ? 'shrink-0 rounded-full bg-neon-cyan/15 px-2 py-1 text-[10px] font-bold uppercase text-neon-cyan'
+                          ? 'shrink-0 rounded-full bg-neon-lilac/15 px-2 py-1 text-[10px] font-bold uppercase text-neon-lilac'
                           : 'shrink-0 rounded-full bg-white/5 px-2 py-1 text-[10px] font-bold uppercase text-muted-foreground'
                       }
                     >
@@ -292,7 +296,28 @@ export function AdminClient() {
                     <span>Arranca {fmt(p.start_at)}</span>
                   </p>
 
-                  <PartyDrilldown partyId={p.id} />
+                  {(p.venue_type || p.genres.length > 0) && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      {(() => {
+                        const v = venueDef(p.venue_type)
+                        return v ? (
+                          <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                            {v.emoji} {v.label}
+                          </span>
+                        ) : null
+                      })()}
+                      {p.genres.map((g) => (
+                        <span
+                          key={g}
+                          className="rounded-full border border-neon-lilac/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-neon-lilac"
+                        >
+                          {genreEmoji(g)} {genreLabel(g)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <PartyDrilldown partyId={p.id} songCount={p.song_count} />
 
                   <div className="mt-3 flex gap-2">
                     {p.status === 'cancelled' ? (
@@ -344,14 +369,17 @@ export function AdminClient() {
 }
 
 /** Chat privado y lista de gente de una previa. Se carga solo si lo pedís. */
-function PartyDrilldown({ partyId }: { partyId: string }) {
+type Panel = 'chat' | 'people' | 'songs'
+
+function PartyDrilldown({ partyId, songCount }: { partyId: string; songCount: number }) {
   const { supabase } = useUser()
-  const [open, setOpen] = useState<'chat' | 'people' | null>(null)
+  const [open, setOpen] = useState<Panel | null>(null)
   const [messages, setMessages] = useState<AdminMessageRow[] | null>(null)
   const [people, setPeople] = useState<AdminPersonRow[] | null>(null)
+  const [songs, setSongs] = useState<AdminSongRow[] | null>(null)
   const [loadingPanel, setLoadingPanel] = useState(false)
 
-  async function show(which: 'chat' | 'people') {
+  async function show(which: Panel) {
     if (open === which) {
       setOpen(null)
       return
@@ -359,11 +387,13 @@ function PartyDrilldown({ partyId }: { partyId: string }) {
     setOpen(which)
     if (which === 'chat' && messages) return
     if (which === 'people' && people) return
+    if (which === 'songs' && songs) return
 
     setLoadingPanel(true)
     try {
       if (which === 'chat') setMessages(await adminReadChat(supabase, partyId))
-      else setPeople(await adminPartyPeople(supabase, partyId))
+      else if (which === 'people') setPeople(await adminPartyPeople(supabase, partyId))
+      else setSongs(await adminPartySongs(supabase, partyId))
     } catch (e) {
       toast.error(friendlyError(e))
       setOpen(null)
@@ -397,6 +427,12 @@ function PartyDrilldown({ partyId }: { partyId: string }) {
         >
           <Users className="h-3.5 w-3.5" /> Gente
         </button>
+        <button
+          onClick={() => show('songs')}
+          className="flex h-8 items-center gap-1.5 rounded-full border border-white/10 px-3 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-white/5"
+        >
+          <Disc3 className="h-3.5 w-3.5" /> Temas{songCount > 0 ? ` · ${songCount}` : ''}
+        </button>
       </div>
 
       {open && (
@@ -412,7 +448,7 @@ function PartyDrilldown({ partyId }: { partyId: string }) {
                       <span
                         className={
                           m.is_host
-                            ? 'font-bold text-neon-pink'
+                            ? 'font-bold text-neon-violet'
                             : 'font-semibold text-muted-foreground'
                         }
                       >
@@ -435,13 +471,39 @@ function PartyDrilldown({ partyId }: { partyId: string }) {
             ) : (
               <p className="text-xs text-muted-foreground">Todavía no hablaron nada.</p>
             )
+          ) : open === 'songs' ? (
+            songs && songs.length > 0 ? (
+              <ul className="flex flex-col gap-1.5">
+                {songs.map((s) => (
+                  <li key={s.id} className="flex items-start justify-between gap-2 text-xs">
+                    <span className="min-w-0">
+                      <span aria-hidden>{genreEmoji(s.genre)}</span>{' '}
+                      <span className="font-semibold">{s.title}</span>
+                      {s.artist ? (
+                        <span className="text-muted-foreground"> — {s.artist}</span>
+                      ) : null}
+                      <span className="text-muted-foreground">
+                        {' '}
+                        · {genreLabel(s.genre)} · {s.user_name}
+                        {s.user_email ? ` (${s.user_email})` : ''}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground">
+                      {fmt(s.created_at)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-muted-foreground">Nadie pidió temas.</p>
+            )
           ) : people && people.length > 0 ? (
             <ul className="flex flex-col gap-1.5">
               {people.map((p) => (
                 <li key={p.request_id} className="flex items-center justify-between gap-2 text-xs">
                   <span className="min-w-0 truncate">
                     {p.display_name}
-                    {p.verified && <BadgeCheck className="ml-1 inline h-3 w-3 text-neon-cyan" />}
+                    {p.verified && <BadgeCheck className="ml-1 inline h-3 w-3 text-neon-lilac" />}
                     {p.email ? (
                       <span className="text-muted-foreground"> · {p.email}</span>
                     ) : null}
@@ -530,9 +592,9 @@ function UsersTab() {
                 <div className="min-w-0">
                   <p className="flex items-center gap-1 truncate text-sm font-semibold">
                     {u.display_name}
-                    {u.verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-neon-cyan" />}
+                    {u.verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-neon-lilac" />}
                     {u.is_admin && (
-                      <span className="rounded-full bg-neon-cyan/15 px-1.5 text-[9px] font-bold uppercase text-neon-cyan">
+                      <span className="rounded-full bg-neon-lilac/15 px-1.5 text-[9px] font-bold uppercase text-neon-lilac">
                         admin
                       </span>
                     )}
@@ -613,7 +675,7 @@ function ReportsTab({ onJump }: { onJump: () => void }) {
           </p>
           <button
             onClick={onJump}
-            className="mt-2 text-[11px] font-semibold text-neon-cyan underline-offset-2 hover:underline"
+            className="mt-2 text-[11px] font-semibold text-neon-lilac underline-offset-2 hover:underline"
           >
             Ver en Previas
           </button>
@@ -652,7 +714,7 @@ function FeedbackTab() {
             {[1, 2, 3, 4, 5].map((n) => (
               <Star
                 key={n}
-                className={`h-3.5 w-3.5 ${n <= f.rating ? 'fill-neon-pink text-neon-pink' : 'text-muted-foreground/30'}`}
+                className={`h-3.5 w-3.5 ${n <= f.rating ? 'fill-neon-violet text-neon-violet' : 'text-muted-foreground/30'}`}
               />
             ))}
           </div>

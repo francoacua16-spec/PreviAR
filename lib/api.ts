@@ -17,6 +17,9 @@ import type {
   MyPartyRow,
   PartyRequestRow,
   PartyRow,
+  AdminSongRow,
+  SearchPartyRow,
+  SongRequestRow,
   ZonePartyRow,
 } from './types'
 
@@ -44,6 +47,17 @@ export function friendlyError(error: unknown): string {
   if (msg.includes('NOT_PARTICIPANT')) return 'No participaste de esta previa.'
   if (msg.includes('NOT_FOUND')) return 'Esa previa no existe.'
   if (msg.includes('BAD_RATING')) return 'Elegí un puntaje de 1 a 5.'
+  if (msg.includes('ADDRESS_REQUIRED')) return 'Falta la dirección de la previa.'
+  if (msg.includes('PIN_REQUIRED')) return 'Falta marcar el punto exacto en el mapa.'
+  if (msg.includes('GENRES_REQUIRED')) return 'Elegí al menos un género musical.'
+  if (msg.includes('TOO_MANY_GENRES')) return 'Máximo 4 géneros por previa.'
+  if (msg.includes('BAD_VENUE')) return 'Ese tipo de lugar no existe.'
+  if (msg.includes('BAD_SONG_GENRE')) return 'Ese tema no va con los géneros de la previa.'
+  if (msg.includes('BAD_SONG')) return 'Escribí el nombre del tema (2 a 120 caracteres).'
+  if (msg.includes('SONG_LIMIT')) return 'Ya pediste 2 temas. Borrá uno para pedir otro.'
+  if (msg.includes('BAD_CITY')) return 'Ciudad inválida.'
+  if (msg.includes('BAD_ZONE')) return 'Elegí una zona.'
+  if (msg.includes('BAD_TYPE')) return 'Tipo de previa inválido.'
   return msg || 'Algo salió mal. Probá de nuevo.'
 }
 
@@ -125,20 +139,93 @@ export async function createParty(
     ...base,
     p_arrival_notes: input.arrivalNotes,
     p_whatsapp_number: input.whatsappNumber,
+    p_genres: input.genres,
+    p_venue_type: input.venueType,
   })
 
-  // PGRST202 = no existe una función con esa firma. Pasa si el código ya está
-  // deployado pero la migración 0006 todavía no corrió: ahí la firma en la
-  // base todavía no acepta p_whatsapp_number. Reintentamos sin ese param para
-  // no dejar de crear previas durante esa ventana (se pierde el WhatsApp, no la previa).
+  // PGRST202 = no existe una función con esa firma. Pasa cuando el código ya
+  // está deployado pero la migración todavía no corrió en la base. Bajamos un
+  // escalón por vez: se pierden campos nuevos, no la previa.
   if (error) {
     if (error.code !== 'PGRST202') throw error
-    const retry = await supabase.rpc('create_party', { ...base, p_arrival_notes: input.arrivalNotes })
-    if (retry.error) throw retry.error
-    return retry.data as string
+
+    const retry06 = await supabase.rpc('create_party', {
+      ...base,
+      p_arrival_notes: input.arrivalNotes,
+      p_whatsapp_number: input.whatsappNumber,
+    })
+    if (!retry06.error) return retry06.data as string
+    if (retry06.error.code !== 'PGRST202') throw retry06.error
+
+    const retry03 = await supabase.rpc('create_party', { ...base, p_arrival_notes: input.arrivalNotes })
+    if (retry03.error) throw retry03.error
+    return retry03.data as string
   }
 
   return data as string
+}
+
+/** Buscador: texto libre + filtro por género y tipo de lugar sobre previas activas. */
+export async function searchParties(
+  supabase: SupabaseClient,
+  params: {
+    city: City | null
+    q: string
+    genres: string[]
+    venues: string[]
+    pos: { lat: number; lng: number } | null
+  }
+): Promise<SearchPartyRow[]> {
+  const { data, error } = await supabase.rpc('search_parties', {
+    p_city: params.city,
+    p_q: params.q.trim() ? params.q.trim() : null,
+    p_genres: params.genres.length ? params.genres : null,
+    p_venues: params.venues.length ? params.venues : null,
+    p_lat: params.pos?.lat ?? null,
+    p_lng: params.pos?.lng ?? null,
+  })
+  if (error) throw error
+  return (data as SearchPartyRow[] | null) ?? []
+}
+
+// ───────────────────── TEMAS PARA EL DJ ─────────────────────
+
+export async function listSongRequests(
+  supabase: SupabaseClient,
+  partyId: string
+): Promise<SongRequestRow[]> {
+  const { data, error } = await supabase.rpc('list_song_requests', { p_party: partyId })
+  if (error) throw error
+  return (data as SongRequestRow[] | null) ?? []
+}
+
+export async function addSongRequest(
+  supabase: SupabaseClient,
+  partyId: string,
+  song: { title: string; artist: string | null; genre: string }
+): Promise<string> {
+  const { data, error } = await supabase.rpc('add_song_request', {
+    p_party: partyId,
+    p_title: song.title,
+    p_artist: song.artist,
+    p_genre: song.genre,
+  })
+  if (error) throw error
+  return data as string
+}
+
+export async function deleteSongRequest(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_song_request', { p_id: id })
+  if (error) throw error
+}
+
+export async function adminPartySongs(
+  supabase: SupabaseClient,
+  partyId: string
+): Promise<AdminSongRow[]> {
+  const { data, error } = await supabase.rpc('admin_party_songs', { p_party: partyId })
+  if (error) throw error
+  return (data as AdminSongRow[] | null) ?? []
 }
 
 export async function partyCheckinTimes(supabase: SupabaseClient, partyId: string): Promise<string[]> {
@@ -150,17 +237,36 @@ export async function partyCheckinTimes(supabase: SupabaseClient, partyId: strin
 export async function hostUpdateParty(
   supabase: SupabaseClient,
   partyId: string,
-  fields: { title: string; description: string | null; arrivalNotes: string | null; whatsappNumber: string | null; maxPeople: number }
+  fields: {
+    title: string
+    description: string | null
+    arrivalNotes: string | null
+    whatsappNumber: string | null
+    maxPeople: number
+    genres?: string[]
+    venueType?: string | null
+  }
 ): Promise<void> {
-  const { error } = await supabase.rpc('host_update_party', {
+  const base = {
     p_id: partyId,
     p_title: fields.title,
     p_description: fields.description,
     p_arrival_notes: fields.arrivalNotes,
     p_whatsapp_number: fields.whatsappNumber,
     p_max_people: fields.maxPeople,
+  }
+
+  const { error } = await supabase.rpc('host_update_party', {
+    ...base,
+    p_genres: fields.genres ?? null,
+    p_venue_type: fields.venueType ?? null,
   })
-  if (error) throw error
+
+  if (error) {
+    if (error.code !== 'PGRST202') throw error
+    const retry = await supabase.rpc('host_update_party', base)
+    if (retry.error) throw retry.error
+  }
 }
 
 export async function hostCancelParty(supabase: SupabaseClient, partyId: string): Promise<void> {

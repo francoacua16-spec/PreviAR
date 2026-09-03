@@ -8,11 +8,37 @@
   :root {
     --background: #0a0a0a;
     --foreground: #f5f5f7;
-    --primary: #ff2d92;
-    --accent: #00f5ff;
+    /* Lila medido del trazo del logo y su tinte. Mismos valores que
+       `neon.violet` / `neon.lilac` en tailwind.config.ts. */
+    --primary: #B299F1;
+    --accent: #D6C8F9;
     /* Alto real del header flotante: fuente única de verdad para todo lo que
        tiene que quedar debajo (city-picker, dropdown de cuenta). */
     --header-h: 4.75rem;
+    /* Alto de la barra inferior de apartados. Todo lo que flota abajo
+       (FAB, leyenda, hojas) se apoya en esta variable, no en números sueltos. */
+    --tabbar-h: 4.25rem;
+
+    /* Resortes. Un resorte no tiene duración fija: la duración de acá es
+       cuánto tarda en asentarse. `spring` es críticamente amortiguado (no
+       rebota) y es el default de toda la UI; `spring-bounce` solo se usa
+       cuando el gesto trajo impulso propio (un flick, soltar un arrastre). */
+    --ease-spring: linear(
+      0, 0.0088 1.53%, 0.0344 3.16%, 0.1092 5.9%, 0.4269 13.4%, 0.5484, 0.6483,
+      0.7291, 0.7924 24.4%, 0.8496, 0.8909, 0.9223 32.1%, 0.9481, 0.9671 40.5%,
+      0.9838 47.2%, 1.0002 60.1%, 1
+    );
+    --ease-spring-bounce: linear(
+      0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%, 1.017,
+      1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%,
+      1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%, 0.985 61.4%,
+      1.001 68.3%, 1.006 74.4%, 1
+    );
+    /* Respuesta, no "duración": lo que tarda en llegar al destino. */
+    --dur-press: 100ms;
+    --dur-fast: 180ms;
+    --dur: 280ms;
+    --dur-slow: 400ms;
   }
 
   @media (min-width: 640px) {
@@ -32,13 +58,13 @@
   body {
     @apply bg-background font-sans text-foreground antialiased;
     background-image:
-      radial-gradient(1200px 600px at 85% -10%, rgba(255, 45, 146, 0.07), transparent 60%),
-      radial-gradient(1000px 500px at -10% 110%, rgba(0, 245, 255, 0.06), transparent 60%);
+      radial-gradient(1200px 600px at 85% -10%, rgba(178, 153, 241, 0.09), transparent 60%),
+      radial-gradient(1000px 500px at -10% 110%, rgba(140, 102, 234, 0.07), transparent 60%);
     background-attachment: fixed;
   }
 
   ::selection {
-    background: rgba(255, 45, 146, 0.45);
+    background: rgba(178, 153, 241, 0.5);
     color: #fff;
   }
 
@@ -58,18 +84,97 @@
 @layer utilities {
   /* Texto con gradiente de marca */
   .brand-gradient-text {
-    background: linear-gradient(93deg, #ff2d92 0%, #ff2d92 38%, #00f5ff 105%);
+    background: linear-gradient(93deg, #8C66EA 0%, #B299F1 42%, #D6C8F9 105%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
 
-  /* Superficie de vidrio oscuro */
+  /* Superficie de vidrio oscuro.
+     Jerarquía de materiales: cuanto más grande la superficie, más espeso el
+     vidrio. `glass-chip` es lo más liviano (píldoras, badges), `glass` el
+     estándar (headers, tarjetas), `glass-deep` lo estructural (barra de
+     apartados, hojas). Nunca apilar un vidrio liviano sobre otro liviano. */
   .glass {
     background: rgba(17, 17, 20, 0.78);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
     border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .glass-chip {
+    background: rgba(24, 24, 28, 0.62);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .glass-deep {
+    background: rgba(12, 12, 15, 0.88);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    /* Borde superior más claro: la luz pegando en el canto del material. */
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Feedback al apretar, no al soltar. Se dispara en pointer-down porque
+     `:active` es pointer-down: esperar al click se siente muerto. */
+  .press {
+    transition:
+      transform var(--dur-press) var(--ease-spring),
+      opacity var(--dur-press) linear;
+    touch-action: manipulation;
+  }
+  .press:active {
+    transform: scale(0.96);
+  }
+
+  /* Igual que .press pero para superficies grandes, donde un 4% se ve exagerado. */
+  .press-soft {
+    transition: transform var(--dur-press) var(--ease-spring);
+    touch-action: manipulation;
+  }
+  .press-soft:active {
+    transform: scale(0.985);
+  }
+
+  /* Entrada de material: el vidrio llega enfocándose, no apareciendo. */
+  .materialize {
+    animation: materialize var(--dur) var(--ease-spring) both;
+  }
+
+  /* Borde de scroll: donde el contenido pasa por debajo de la barra flotante
+     se desvanece, en vez de cortarse contra una línea de 1px. */
+  .scroll-edge-bottom {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2.5rem), transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 2.5rem), transparent 100%);
+  }
+
+  /* Tipografía: el tracking cambia con el tamaño. Grande va más junto
+     (las letras se leen separadas al crecer), chico va más suelto. */
+  .type-display {
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+  }
+  .type-title {
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+  }
+  .type-body {
+    letter-spacing: 0;
+    line-height: 1.55;
+  }
+  .type-caption {
+    letter-spacing: 0.01em;
+    line-height: 1.4;
+  }
+
+  /* Blanco puro sobre vidrio se lava. Vibrancy: un poco más de peso y de
+     tracking para que el texto chico siga siendo legible sobre el blur. */
+  .on-glass {
+    color: rgba(245, 245, 247, 0.94);
+    letter-spacing: 0.01em;
   }
 
   /* Sin scrollbar (chips horizontales) */
@@ -85,8 +190,13 @@
     padding-bottom: max(env(safe-area-inset-bottom), 1rem);
   }
 
+  /* Deja lugar para la barra de apartados: nada queda tapado abajo. */
+  .pb-tabbar {
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 0.75rem);
+  }
+
   .text-shadow-neon {
-    text-shadow: 0 0 24px rgba(255, 45, 146, 0.55);
+    text-shadow: 0 0 24px rgba(178, 153, 241, 0.55);
   }
 }
 
@@ -121,4 +231,75 @@
 }
 .leaflet-tooltip-top::before {
   border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+@keyframes materialize {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ---- Accesibilidad: tres señales independientes ---- */
+
+/* Menos movimiento no es "sin feedback": es feedback sin desplazamiento.
+   Se conservan opacidad y color, que ayudan a entender qué pasó. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--dur-fast) !important;
+    transition-property: opacity, background-color, border-color, color !important;
+    scroll-behavior: auto !important;
+  }
+
+  .press:active,
+  .press-soft:active {
+    transform: none;
+    opacity: 0.7;
+  }
+
+  .materialize {
+    animation: none;
+  }
+}
+
+/* Sin transparencia: el vidrio se vuelve sólido y se apaga el blur.
+   Si no, el texto queda ilegible sobre el mapa. */
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-chip,
+  .glass-deep {
+    background: #131317;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .leaflet-control-attribution {
+    background: #0a0a0a !important;
+    backdrop-filter: none;
+  }
+}
+
+/* Más contraste: fondo casi opaco y borde definido. */
+@media (prefers-contrast: more) {
+  .glass,
+  .glass-chip,
+  .glass-deep {
+    background: #0d0d10;
+    border-color: rgba(255, 255, 255, 0.35);
+  }
+  .on-glass {
+    color: #ffffff;
+  }
+  body {
+    background-image: none;
+  }
 }

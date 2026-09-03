@@ -18,6 +18,8 @@ import { hostUpdateParty, friendlyError } from '@/lib/api'
 import { useUser } from '@/components/providers'
 import { CITY_LEGAL_LIMITS } from '@/lib/constants'
 import { LegalModal } from '@/components/create/legal-modal'
+import { GenrePicker } from '@/components/create/genre-picker'
+import { VenuePicker } from '@/components/create/venue-picker'
 import type { PartyRow } from '@/lib/types'
 
 interface EditPartyDialogProps {
@@ -30,6 +32,8 @@ interface EditPartyDialogProps {
     arrivalNotes: string | null
     whatsappNumber: string | null
     maxPeople: number
+    genres: string[]
+    venueType: string | null
   }) => void
 }
 
@@ -42,6 +46,8 @@ export function EditPartyDialog({ open, onOpenChange, party, onUpdated }: EditPa
   const [arrivalNotes, setArrivalNotes] = useState(party.arrival_notes ?? '')
   const [whatsapp, setWhatsapp] = useState(party.whatsapp_number ?? '')
   const [maxPeople, setMaxPeople] = useState(party.max_people)
+  const [genres, setGenres] = useState<string[]>(party.genres ?? [])
+  const [venueType, setVenueType] = useState<string | null>(party.venue_type)
   const [legalOpen, setLegalOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -62,6 +68,10 @@ export function EditPartyDialog({ open, onOpenChange, party, onUpdated }: EditPa
       toast.error(`Ya hay ${party.attendees_count} confirmados: no podés bajar de eso.`)
       return
     }
+    if (genres.length === 0) {
+      toast.error('Dejá al menos un género musical.')
+      return
+    }
     if (needsLegal) {
       setLegalOpen(true)
       return
@@ -78,6 +88,8 @@ export function EditPartyDialog({ open, onOpenChange, party, onUpdated }: EditPa
         arrivalNotes: arrivalNotes.trim() ? arrivalNotes.trim() : null,
         whatsappNumber: whatsapp.trim() ? whatsapp.trim() : null,
         maxPeople,
+        genres,
+        venueType,
       }
       await hostUpdateParty(supabase, party.id, fields)
       onUpdated(fields)
@@ -128,6 +140,19 @@ export function EditPartyDialog({ open, onOpenChange, party, onUpdated }: EditPa
                   className="pl-9"
                 />
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Música</Label>
+              <GenrePicker value={genres} onChange={setGenres} />
+              <p className="type-caption text-[11px] text-zone-yellow/85">
+                Si sacás un género, los temas pedidos de ese género se borran.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Dónde es</Label>
+              <VenuePicker value={venueType} onChange={setVenueType} />
             </div>
 
             <div className="space-y-1.5">

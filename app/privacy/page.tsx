@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { PinLogo, Wordmark } from '@/components/logo'
+import { Wordmark } from '@/components/logo'
 
 export const metadata: Metadata = {
   title: 'Política de privacidad',
@@ -18,10 +18,7 @@ export default function PrivacyPage() {
         Volver
       </Link>
 
-      <div className="mb-8 flex items-center gap-2">
-        <PinLogo className="h-6 w-6" />
-        <Wordmark className="h-4" />
-      </div>
+      <Wordmark className="mb-8 h-8 self-start" />
 
       <h1 className="mb-6 text-2xl font-bold text-foreground">Política de privacidad</h1>
       <p className="mb-4 text-muted-foreground">Última actualización: 30 de agosto de 2026.</p>

@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock,
-  Copy,
   DoorOpen,
   Hourglass,
   Loader2,
@@ -15,6 +14,7 @@ import {
   MessageCircle,
   Navigation,
   Pencil,
+  QrCode,
   Users,
   XCircle,
 } from 'lucide-react'
@@ -33,14 +33,17 @@ import {
   requestToJoin,
 } from '@/lib/api'
 import { formatCountdown, formatWhen, vibeOf } from '@/lib/format'
+import { genreEmoji, genreLabel, venueDef } from '@/lib/constants'
 import { getCity, zoneLabel } from '@/lib/zones'
 import type { MyStatus, PartyRow } from '@/lib/types'
 import { Chat } from './chat'
 import { EditPartyDialog } from './edit-party-dialog'
 import { FeedbackDialog } from './feedback-dialog'
 import { HostRequests } from './host-requests'
+import { InviteDialog } from './invite-dialog'
 import { MiniMap } from './mini-map'
 import { ReportDialog } from './report-dialog'
+import { SongRequests } from './song-requests'
 import { cn } from '@/lib/utils'
 
 interface PartyClientProps {
@@ -62,6 +65,7 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
   const [working, setWorking] = useState(false)
   const [checkinTimes, setCheckinTimes] = useState<string[]>([])
   const [editOpen, setEditOpen] = useState(false)
+  const [inviteOpen, setInviteOpen] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [leaving, setLeaving] = useState(false)
 
@@ -70,6 +74,7 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
   const cancelled = party.status === 'cancelled'
   const cityDef = getCity(party.city)
   const vibe = vibeOf(attendees, party.max_people)
+  const venue = venueDef(party.venue_type)
 
   // ── Registro horario de check-ins: lo ve cualquiera, sin nombres ─
   useEffect(() => {
@@ -110,6 +115,10 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
             max_people: (p.max_people as number) ?? prev.max_people,
             start_at: (p.start_at as string) ?? prev.start_at,
             expires_at: (p.expires_at as string) ?? prev.expires_at,
+            // genres/venue_type están en el GRANT SELECT (0007): no son datos
+            // gateados, así que mergearlos por realtime no filtra nada.
+            genres: (p.genres as string[] | null) ?? prev.genres,
+            venue_type: (p.venue_type as string | null) ?? prev.venue_type,
           }))
         }
       )
@@ -270,15 +279,6 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
   }
 
-  async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(partyUrl)
-      toast.success('Link copiado 📋')
-    } catch {
-      toast.error('No pudimos copiar el link')
-    }
-  }
-
   function openDirections() {
     if (party.lat_hidden == null || party.lng_hidden == null) return
     window.open(
@@ -300,6 +300,22 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
         </button>
         <ReportDialog partyId={party.id} />
       </div>
+
+      {/* Índice de la previa. Aparece recién cuando la página se hace larga (ya
+          aprobado: dirección + temas + chat + panel), que es cuando encontrar
+          algo a puro scroll empieza a costar. */}
+      {isApproved && !expired && !cancelled && (
+        <SectionNav
+          items={[
+            { id: 'sec-lugar', label: '📍 Lugar' },
+            ...(party.genres.length > 0
+              ? [{ id: 'sec-musica', label: '🎧 Música' }]
+              : []),
+            { id: 'sec-chat', label: '💬 Chat' },
+            ...(isHost ? [{ id: 'sec-gente', label: '🙋 Gente' }] : []),
+          ]}
+        />
+      )}
 
       {/* Hero */}
       <section className="glass relative overflow-hidden rounded-3xl p-5 animate-fade-up">
@@ -343,13 +359,32 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
                 'Abierta'
               )}
             </Badge>
+            {venue && (
+              <Badge variant="outline">
+                {venue.emoji} {venue.label}
+              </Badge>
+            )}
           </div>
+
+          {/* Música: lo primero que cualquiera quiere saber de una previa. */}
+          {party.genres.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {party.genres.map((g) => (
+                <span
+                  key={g}
+                  className="rounded-full border border-neon-lilac/30 bg-accent/10 px-2.5 py-1 text-[11px] font-semibold text-neon-lilac"
+                >
+                  {genreEmoji(g)} {genreLabel(g)}
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Capacidad */}
           <div className="mt-4">
             <div className="flex items-center justify-between text-xs">
               <span className="flex items-center gap-1 font-semibold">
-                <Users className="h-3.5 w-3.5 text-neon-cyan" />
+                <Users className="h-3.5 w-3.5 text-neon-lilac" />
                 {attendees} de {party.max_people} confirmados
               </span>
               <span className={cn('font-semibold', expired ? 'text-zone-red' : 'text-muted-foreground')}>
@@ -358,7 +393,7 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
             </div>
             <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/[0.06]">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-neon-pink to-neon-cyan transition-all duration-700"
+                className="h-full rounded-full bg-gradient-to-r from-neon-violet to-neon-lilac transition-all duration-700"
                 style={{ width: `${Math.min(100, (attendees / Math.max(party.max_people, 1)) * 100)}%` }}
               />
             </div>
@@ -423,7 +458,7 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
 
         {!cancelled && !expired && !isApproved && myStatus === 'none' && (
           <div className="glass rounded-2xl p-4 text-center animate-fade-up">
-            <Lock className="mx-auto mb-2 h-6 w-6 text-neon-pink" />
+            <Lock className="mx-auto mb-2 h-6 w-6 text-neon-violet" />
             <p className="text-sm leading-relaxed text-foreground/85">
               Es <strong>privada</strong>. La dirección exacta se desbloquea solo si{' '}
               <strong>{party.host_name.split(' ')[0]}</strong> te aprueba.
@@ -456,15 +491,15 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
 
         {/* Dirección: SOLO aprobados/host */}
         {isApproved && !cancelled && (
-          <div className="space-y-3 animate-fade-up">
-            <div className="rounded-2xl border border-neon-pink/25 bg-neon-pink/[0.04] p-4">
-              <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-neon-pink">
+          <div id="sec-lugar" className="scroll-mt-20 space-y-3 animate-fade-up">
+            <div className="rounded-2xl border border-neon-violet/25 bg-neon-violet/[0.04] p-4">
+              <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-neon-violet">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 {isHost ? 'Tu dirección (solo la ven aprobados)' : 'Dirección desbloqueada'}
               </p>
               {party.address_hidden && (
                 <p className="mt-1.5 flex items-start gap-1.5 text-base font-bold">
-                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-neon-pink" />
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-neon-violet" />
                   {party.address_hidden}
                 </p>
               )}
@@ -476,7 +511,7 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
               {party.lat_hidden != null && party.lng_hidden != null && (
                 <button
                   onClick={openDirections}
-                  className="mt-2.5 flex items-center gap-1.5 text-sm font-bold text-neon-cyan underline-offset-4 hover:underline"
+                  className="mt-2.5 flex items-center gap-1.5 text-sm font-bold text-neon-lilac underline-offset-4 hover:underline"
                 >
                   <Navigation className="h-4 w-4" /> Cómo llegar
                 </button>
@@ -522,22 +557,27 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
         {/* Compartir */}
         {!expired && !cancelled && (
           <div className="grid grid-cols-2 gap-2.5">
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={shareWhatsApp}
-            >
+            <Button variant="outline" className="press w-full" onClick={shareWhatsApp}>
               <MessageCircle className="h-4 w-4 text-zone-green" /> WhatsApp
             </Button>
-            <Button variant="outline" className="w-full" onClick={() => void copyLink()}>
-              <Copy className="h-4 w-4 text-neon-cyan" /> Copiar link
+            <Button variant="outline" className="press w-full" onClick={() => setInviteOpen(true)}>
+              <QrCode className="h-4 w-4 text-neon-lilac" /> QR e invitar
             </Button>
+          </div>
+        )}
+
+        {/* Temas para el DJ: solo miembros, y solo si la previa definió géneros */}
+        {isApproved && !expired && !cancelled && party.genres.length > 0 && (
+          <div id="sec-musica" className="scroll-mt-20">
+            <SongRequests partyId={party.id} genres={party.genres} isHost={isHost} />
           </div>
         )}
 
         {/* Chat: solo miembros */}
         {isApproved && !expired && !cancelled && (
-          <Chat partyId={party.id} currentUserId={currentUserId} />
+          <div id="sec-chat" className="scroll-mt-20">
+            <Chat partyId={party.id} currentUserId={currentUserId} />
+          </div>
         )}
 
         {/* Abandonar previa: invitado aprobado, no el anfitrión */}
@@ -579,7 +619,11 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
         )}
 
         {/* Panel host */}
-        {isHost && !expired && !cancelled && <HostRequests partyId={party.id} />}
+        {isHost && !expired && !cancelled && (
+          <div id="sec-gente" className="scroll-mt-20">
+            <HostRequests partyId={party.id} />
+          </div>
+        )}
       </section>
 
       <EditPartyDialog
@@ -594,8 +638,19 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
             arrival_notes: fields.arrivalNotes,
             whatsapp_number: fields.whatsappNumber,
             max_people: fields.maxPeople,
+            genres: fields.genres,
+            venue_type: fields.venueType,
           }))
         }
+      />
+
+      <InviteDialog
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        url={partyUrl}
+        title={party.title}
+        place={`${zoneLabel(party.city, party.zone_text)} · ${cityDef.label}`}
+        when={formatWhen(party.start_at)}
       />
 
       <FeedbackDialog
@@ -612,5 +667,37 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
         Si algo no cierra, reportá.
       </p>
     </main>
+  )
+}
+
+/**
+ * Índice de secciones de la previa. Se pega arriba al hacer scroll para que
+ * "dónde es", "qué suena", "quién habla" y "quién viene" estén siempre a un
+ * toque, en vez de a media pantalla de scroll.
+ */
+function SectionNav({ items }: { items: { id: string; label: string }[] }) {
+  function go(id: string) {
+    const el = document.getElementById(id)
+    if (!el) return
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+  }
+
+  return (
+    <nav
+      aria-label="Secciones de la previa"
+      className="glass-deep sticky top-0 z-30 -mx-4 mb-3 flex gap-1.5 overflow-x-auto px-4 py-2"
+    >
+      {items.map((it) => (
+        <button
+          key={it.id}
+          type="button"
+          onClick={() => go(it.id)}
+          className="press glass-chip shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold text-foreground/85"
+        >
+          {it.label}
+        </button>
+      ))}
+    </nav>
   )
 }

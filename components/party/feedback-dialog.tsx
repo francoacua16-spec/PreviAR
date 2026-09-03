@@ -71,7 +71,7 @@ export function FeedbackDialog({ open, onOpenChange, partyId, onDone }: Feedback
               <Star
                 className={cn(
                   'h-8 w-8 transition-colors',
-                  n <= rating ? 'fill-neon-pink text-neon-pink' : 'text-muted-foreground/40'
+                  n <= rating ? 'fill-neon-violet text-neon-violet' : 'text-muted-foreground/40'
                 )}
               />
             </button>

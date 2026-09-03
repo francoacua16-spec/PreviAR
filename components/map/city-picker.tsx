@@ -23,7 +23,7 @@ export function CityPicker({ city, onChange }: CityPickerProps) {
               className={cn(
                 'shrink-0 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all',
                 active
-                  ? 'bg-gradient-to-r from-neon-pink to-neon-cyan text-black shadow-neon-pink'
+                  ? 'bg-gradient-to-r from-neon-violet to-neon-lilac text-black shadow-neon-violet'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >

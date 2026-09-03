@@ -19,9 +19,9 @@ export function zonePinDataUrl({ count, color }: { count: number; color: string 
 /** Pin exacto (solo visible para aprobados / host). */
 export function exactPinDataUrl() {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="56" height="66" viewBox="0 0 64 72">
-    <path d="M32 1.5C15.2 1.5 1.5 15.2 1.5 32c0 23.6 30.5 38.5 30.5 38.5S62.5 55.6 62.5 32C62.5 15.2 48.8 1.5 32 1.5z" fill="#FF2D92"/>
+    <path d="M32 1.5C15.2 1.5 1.5 15.2 1.5 32c0 23.6 30.5 38.5 30.5 38.5S62.5 55.6 62.5 32C62.5 15.2 48.8 1.5 32 1.5z" fill="#B299F1"/>
     <circle cx="32" cy="30" r="20" fill="#0A0A0A"/>
-    <circle cx="32" cy="30" r="8.5" fill="#00F5FF"/>
+    <circle cx="32" cy="30" r="8.5" fill="#D6C8F9"/>
   </svg>`
   return svgToDataUrl(svg)
 }
@@ -29,8 +29,8 @@ export function exactPinDataUrl() {
 /** Punto de ubicación del usuario. */
 export function userDotDataUrl() {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
-    <circle cx="14" cy="14" r="13" fill="#00F5FF" fill-opacity="0.18"/>
-    <circle cx="14" cy="14" r="7.5" fill="#00F5FF" stroke="#0A0A0A" stroke-width="3"/>
+    <circle cx="14" cy="14" r="13" fill="#B299F1" fill-opacity="0.18"/>
+    <circle cx="14" cy="14" r="7.5" fill="#B299F1" stroke="#0A0A0A" stroke-width="3"/>
   </svg>`
   return svgToDataUrl(svg)
 }

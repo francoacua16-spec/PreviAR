@@ -60,7 +60,7 @@ export function ZoneSheet({ open, onOpenChange, city, zoneKey, zoneLabel, pos }:
       <SheetContent side="bottom" className="max-h-[72dvh] overflow-y-auto pb-[max(env(safe-area-inset-bottom),1.25rem)]">
         <SheetHeader className="mb-2">
           <SheetTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-neon-pink" />
+            <MapPin className="h-5 w-5 text-neon-violet" />
             {zoneLabel}
           </SheetTitle>
           <SheetDescription>
@@ -74,7 +74,7 @@ export function ZoneSheet({ open, onOpenChange, city, zoneKey, zoneLabel, pos }:
 
         {loading && (
           <div className="flex justify-center py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-neon-pink" />
+            <Loader2 className="h-6 w-6 animate-spin text-neon-violet" />
           </div>
         )}
 
@@ -86,7 +86,7 @@ export function ZoneSheet({ open, onOpenChange, city, zoneKey, zoneLabel, pos }:
               <button
                 key={row.id}
                 onClick={() => router.push(`/party/${row.id}`)}
-                className="glass w-full rounded-2xl p-4 text-left transition-all hover:border-neon-pink/40 active:scale-[0.99] animate-fade-up"
+                className="glass w-full rounded-2xl p-4 text-left transition-all hover:border-neon-violet/40 active:scale-[0.99] animate-fade-up"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -123,9 +123,9 @@ export function ZoneSheet({ open, onOpenChange, city, zoneKey, zoneLabel, pos }:
 
         {!loading && rows.length === 0 && (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <PartyPopper className="h-10 w-10 text-neon-cyan" />
+            <PartyPopper className="h-10 w-10 text-neon-lilac" />
             <p className="text-sm text-muted-foreground">
-              Tocá <span className="font-semibold text-neon-pink">+ Crear Previa</span> y que corra la voz.
+              Tocá <span className="font-semibold text-neon-violet">+ Crear Previa</span> y que corra la voz.
             </p>
           </div>
         )}
