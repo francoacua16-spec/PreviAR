@@ -4,8 +4,9 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { CalendarHeart, Map, Plus, Search, Shield, User } from 'lucide-react'
+import { toast } from 'sonner'
 import { useUser } from '@/components/providers'
-import { countPendingForMe } from '@/lib/api'
+import { adminUnseenCount, countPendingForMe } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 /** Rutas donde la barra estorba: pantallas de foco único o sin sesión. */
@@ -35,6 +36,7 @@ export function TabBar() {
   const router = useRouter()
   const { user, isAdmin, supabase } = useUser()
   const [pending, setPending] = useState(0)
+  const [unseen, setUnseen] = useState(0)
 
   useEffect(() => {
     if (!user) return
@@ -61,6 +63,39 @@ export function TabBar() {
       supabase.removeChannel(channel)
     }
   }, [user, supabase])
+
+  // Aviso de admin: previas nuevas desde la última visita al panel, más un
+  // toast en vivo si alguien crea una previa mientras Franco usa la app. Vive
+  // acá y no en el header del mapa porque la barra está montada en todas las
+  // secciones — antes el aviso solo aparecía si estabas parado en el mapa.
+  useEffect(() => {
+    if (!isAdmin) return
+    let active = true
+
+    adminUnseenCount(supabase)
+      .then((n) => active && setUnseen(n))
+      .catch(() => {})
+
+    const channel = supabase
+      .channel('tabbar-admin-new-parties')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'parties' }, (payload) => {
+        if (!active) return
+        const title = (payload.new as { title?: string }).title ?? 'sin título'
+        toast(`🎉 Previa nueva: ${title}`, { description: 'Entrá a Admin para verla.' })
+        setUnseen((n) => n + 1)
+      })
+      .subscribe()
+
+    return () => {
+      active = false
+      supabase.removeChannel(channel)
+    }
+  }, [isAdmin, supabase])
+
+  // Al entrar al panel el contador se apaga: adminMarkSeen() ya corre allá.
+  useEffect(() => {
+    if (pathname.startsWith('/admin')) setUnseen(0)
+  }, [pathname])
 
   if (!user) return null
   if (HIDDEN_PREFIXES.some((p) => (p === '/login' ? pathname === p : pathname.startsWith(p)))) {
@@ -104,7 +139,7 @@ export function TabBar() {
           key={t.href}
           tab={t}
           pathname={pathname}
-          badge={t.href === '/mis-previas' ? pending : 0}
+          badge={t.href === '/mis-previas' ? pending : t.href === '/admin' ? unseen : 0}
         />
       ))}
     </nav>

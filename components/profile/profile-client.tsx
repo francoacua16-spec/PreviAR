@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, BadgeCheck, Camera, Loader2 } from 'lucide-react'
+import { BadgeCheck, Camera, ChevronRight, Loader2, LogOut, Shield } from 'lucide-react'
 import { toast } from 'sonner'
 import { useUser } from '@/components/providers'
 import { friendlyError, startVerification, updateProfile, uploadAvatar } from '@/lib/api'
@@ -11,7 +11,7 @@ const MAX_FILE_BYTES = 5 * 1024 * 1024 // 5MB
 
 export function ProfileClient() {
   const router = useRouter()
-  const { user, profile, supabase, refreshProfile } = useUser()
+  const { user, profile, isAdmin, supabase, refreshProfile } = useUser()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [displayName, setDisplayName] = useState(
@@ -79,16 +79,21 @@ export function ProfileClient() {
     }
   }
 
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    toast('Chau 👋 Nos vemos el finde.')
+    router.replace('/')
+  }
+
   return (
     <div className="pb-tabbar min-h-dvh bg-background px-4 py-6">
-      <button
-        onClick={() => router.back()}
-        className="glass mb-6 flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" /> Volver
-      </button>
-
-      <h1 className="mb-6 font-display text-xl font-bold brand-gradient-text">Mi perfil</h1>
+      <h1 className="mb-1 font-display text-xl font-bold brand-gradient-text">Cuenta</h1>
+      <p className="mb-6 flex items-center gap-1.5 text-xs text-muted-foreground">
+        {user?.email}
+        {profile?.verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-neon-lilac" />}
+        <span aria-hidden>·</span>
+        <span>Reputación {'⭐'.repeat(Math.min(profile?.reputation ?? 5, 5))}</span>
+      </p>
 
       <div className="glass mb-4 flex flex-col items-center gap-4 rounded-3xl p-6">
         <button
@@ -157,6 +162,27 @@ export function ProfileClient() {
             </button>
           </>
         )}
+      </div>
+
+      {/* Lo que antes colgaba del avatar en el mapa. Un destino, un lugar. */}
+      <div className="glass mt-4 overflow-hidden rounded-3xl">
+        {isAdmin && (
+          <button
+            onClick={() => router.push('/admin')}
+            className="press flex w-full items-center gap-3 px-5 py-4 text-sm font-semibold text-neon-lilac transition-colors hover:bg-white/5"
+          >
+            <Shield className="h-4 w-4 shrink-0" /> Panel de control
+            <ChevronRight className="ml-auto h-4 w-4 shrink-0 opacity-50" />
+          </button>
+        )}
+        <button
+          onClick={handleSignOut}
+          className={`press flex w-full items-center gap-3 px-5 py-4 text-sm font-semibold text-zone-red transition-colors hover:bg-white/5 ${
+            isAdmin ? 'border-t border-white/5' : ''
+          }`}
+        >
+          <LogOut className="h-4 w-4 shrink-0" /> Cerrar sesión
+        </button>
       </div>
     </div>
   )
