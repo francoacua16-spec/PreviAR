@@ -1,9 +1,8 @@
 import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { RequireAuth } from '@/components/auth/require-auth'
 import { MyPartiesClient } from '@/components/party/my-parties-client'
 
-export const dynamic = 'force-dynamic'
+// Estática a propósito: ver app/profile/page.tsx.
 
 export const metadata: Metadata = {
   // Ruta privada: detrás del login y con datos de gente real. Fuera del índice.
@@ -12,16 +11,10 @@ export const metadata: Metadata = {
   description: 'Las previas que armaste y a las que vas.',
 }
 
-export default async function MisPreviasPage() {
-  const supabase = createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login?next=%2Fmis-previas')
-  }
-
-  return <MyPartiesClient />
+export default function MisPreviasPage() {
+  return (
+    <RequireAuth>
+      <MyPartiesClient />
+    </RequireAuth>
+  )
 }

@@ -1,9 +1,8 @@
 import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { RequireAuth } from '@/components/auth/require-auth'
 import { SearchClient } from '@/components/search/search-client'
 
-export const dynamic = 'force-dynamic'
+// Estática a propósito: ver app/profile/page.tsx.
 
 export const metadata: Metadata = {
   // Ruta privada: detrás del login y con datos de gente real. Fuera del índice.
@@ -12,16 +11,10 @@ export const metadata: Metadata = {
   description: 'Buscá previas por nombre, zona, música o tipo de lugar.',
 }
 
-export default async function BuscarPage() {
-  const supabase = createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login?next=%2Fbuscar')
-  }
-
-  return <SearchClient />
+export default function BuscarPage() {
+  return (
+    <RequireAuth>
+      <SearchClient />
+    </RequireAuth>
+  )
 }

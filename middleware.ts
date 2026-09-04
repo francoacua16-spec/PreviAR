@@ -6,15 +6,19 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * El middleware existe sólo para refrescar la cookie de sesión antes de que
-     * la lea un componente de server. Corre en todo menos:
-     *   - estáticos de Next, íconos, manifest, sw.js, imágenes
-     *   - `/` (el mapa es cliente puro y no lee sesión en el server; el cliente
-     *     de Supabase refresca solo). El `.+` final es lo que excluye la raíz:
-     *     el matcher pide match completo y `/` no tiene nada después de la barra.
-     */
-    '/((?!_next/static|_next/image|favicon.ico|sw.js|icons/|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).+)',
-  ],
+  /*
+   * El middleware existe sólo para una cosa: refrescar la cookie de sesión
+   * cuando la va a leer un Server Component, porque un Server Component no
+   * puede escribir cookies y por eso no puede refrescarla él mismo.
+   *
+   * Después de mover /profile, /buscar, /mis-previas y /admin al cliente, el
+   * único Server Component que lee sesión es /party/[id]. Corría en todas las
+   * rutas y cada corrida es un `getUser()`, o sea un viaje de red a Supabase
+   * antes de que el request llegue siquiera a la página: era medio segundo de
+   * peaje en cada toque de pestaña, para nada.
+   *
+   * Los Route Handlers de /api sí pueden escribir cookies, así que refrescan
+   * solos y tampoco lo necesitan.
+   */
+  matcher: ['/party/:path*', '/auth/:path*'],
 }

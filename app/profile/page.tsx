@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { RequireAuth } from '@/components/auth/require-auth'
 import { ProfileClient } from '@/components/profile/profile-client'
 
-export const dynamic = 'force-dynamic'
+// Sin `force-dynamic` ni `getUser()` de server: esta página no renderiza ningún
+// dato del usuario en el HTML, sólo el cascarón. Estática la prefetchea Next y
+// la pestaña abre al instante. Ver components/auth/require-auth.tsx.
 
 export const metadata: Metadata = {
   title: 'Tu perfil',
@@ -12,16 +13,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-export default async function ProfilePage() {
-  const supabase = createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login?next=%2Fprofile')
-  }
-
-  return <ProfileClient />
+export default function ProfilePage() {
+  return (
+    <RequireAuth>
+      <ProfileClient />
+    </RequireAuth>
+  )
 }

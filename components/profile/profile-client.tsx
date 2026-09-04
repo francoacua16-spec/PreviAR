@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { BadgeCheck, Camera, ChevronRight, Loader2, LogOut, Shield } from 'lucide-react'
+import { BadgeCheck, Camera, ChevronRight, ImagePlus, Loader2, LogOut, Shield } from 'lucide-react'
 import { toast } from 'sonner'
 import { useUser } from '@/components/providers'
 import { friendlyError, startVerification, updateProfile, uploadAvatar } from '@/lib/api'
@@ -12,7 +12,11 @@ const MAX_FILE_BYTES = 5 * 1024 * 1024 // 5MB
 export function ProfileClient() {
   const router = useRouter()
   const { user, profile, isAdmin, supabase, refreshProfile } = useUser()
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  // Dos inputs, no uno. `capture` no es un filtro: en iOS Safari abre la cámara
+  // directo y te saca la opción de galería, así que un solo input con capture
+  // significaba "sacate una foto ahora o nada". Cada opción va por su input.
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
 
   const [displayName, setDisplayName] = useState(
     profile?.display_name ?? user?.user_metadata?.full_name ?? ''
@@ -37,6 +41,9 @@ export function ProfileClient() {
     }
     setPendingFile(file)
     setAvatarPreview(URL.createObjectURL(file))
+    // Sin esto, volver a elegir el mismo archivo no dispara onChange (el value
+    // del input no cambió) y parece que el botón no hace nada.
+    e.target.value = ''
   }
 
   async function handleSave() {
@@ -97,9 +104,9 @@ export function ProfileClient() {
 
       <div className="glass mb-4 flex flex-col items-center gap-4 rounded-3xl p-6">
         <button
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => galleryInputRef.current?.click()}
           className="group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-neon-violet to-neon-lilac"
-          aria-label="Cambiar foto de perfil"
+          aria-label="Elegir foto de perfil de la galería"
         >
           {avatarPreview ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -111,16 +118,42 @@ export function ProfileClient() {
             <Camera className="h-6 w-6 text-white" />
           </div>
         </button>
+
+        <div className="flex w-full gap-2">
+          <button
+            type="button"
+            onClick={() => cameraInputRef.current?.click()}
+            className="press flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 text-xs font-semibold transition-colors hover:bg-white/10"
+          >
+            <Camera className="h-4 w-4 shrink-0" /> Sacar foto
+          </button>
+          <button
+            type="button"
+            onClick={() => galleryInputRef.current?.click()}
+            className="press flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 text-xs font-semibold transition-colors hover:bg-white/10"
+          >
+            <ImagePlus className="h-4 w-4 shrink-0" /> Elegir foto
+          </button>
+        </div>
+
         <input
-          ref={fileInputRef}
+          ref={cameraInputRef}
           type="file"
           accept="image/*"
           capture="user"
           className="hidden"
           onChange={handlePickPhoto}
         />
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handlePickPhoto}
+        />
         <p className="text-center text-xs text-muted-foreground">
-          Tocá la foto para {profile?.avatar_url ? 'cambiarla' : 'agregar tu cara'} 📸
+          {profile?.avatar_url ? 'Cambiá tu foto' : 'Poné tu cara'}: sacala ahora o elegila de tu
+          galería 📸
         </p>
 
         <input

@@ -346,16 +346,33 @@ export async function setUserCity(supabase: SupabaseClient, userId: string, city
 }
 
 /** Sube la foto de perfil al bucket público `avatars` (carpeta `<uid>/`) y devuelve la URL pública. */
+const MIME_EXT: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+  'image/gif': 'gif',
+}
+
 export async function uploadAvatar(
   supabase: SupabaseClient,
   userId: string,
   file: File
 ): Promise<string> {
-  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+  // La extensión sale del MIME, no del nombre: una foto sacada con la cámara
+  // llega como `image` o `blob`, sin punto, y `split('.').pop()` devolvía el
+  // nombre entero (path `avatar.image`, que después nadie sabe servir).
+  const ext = MIME_EXT[file.type] ?? file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
   const path = `${userId}/avatar.${ext}`
   const { error } = await supabase.storage
     .from('avatars')
-    .upload(path, file, { upsert: true, cacheControl: '3600' })
+    .upload(path, file, {
+      upsert: true,
+      cacheControl: '3600',
+      contentType: file.type || 'image/jpeg',
+    })
   if (error) throw error
   const { data } = supabase.storage.from('avatars').getPublicUrl(path)
   // Cache-busting: mismo path pero foto nueva, si no el <img> vieja queda cacheada.
