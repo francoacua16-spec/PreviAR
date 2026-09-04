@@ -68,29 +68,3 @@ export function zonePinHtml({
     </svg>
   </div>`
 }
-
-/**
- * Pin apagado para zonas sin ninguna previa. Sólo se dibuja cuando en todo el
- * recuadro visible no hay nada: en un mapa con previas serían ruido gris, pero
- * en un mapa vacío son la única salida que tiene el usuario.
- */
-export function emptyZonePinHtml(label: string) {
-  return `<div class="pin-empty">
-    <span class="pin-empty-dot"></span>
-    <span class="pin-empty-label">${label}</span>
-  </div>`
-}
-
-/** Velero a la deriva. Decorativo: no se toca, no abre nada. */
-export function boatHtml(flip: boolean) {
-  // El scaleX va en un wrapper y no en `.boat`: una animación CSS pisa la
-  // `transform` inline, y el velero perdía el espejado al empezar a cabecear.
-  return `<div style="transform:scaleX(${flip ? -1 : 1})"><div class="boat">
-    <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none">
-      <path d="M12 2.5 12 15" stroke="#D6C8F9" stroke-width="1.4" stroke-linecap="round"/>
-      <path d="M13 4.2c3.2 2.3 4.6 5.1 5 8.3H13z" fill="#B299F1"/>
-      <path d="M11 6.5C9.2 8.4 8.2 10.4 7.8 12.5H11z" fill="#8E6FE0"/>
-      <path d="M4.5 16h15l-2.2 3.6a2 2 0 0 1-1.7 1H8.4a2 2 0 0 1-1.7-1z" fill="#D6C8F9"/>
-    </svg>
-  </div></div>`
-}

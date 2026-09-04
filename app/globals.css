@@ -393,57 +393,11 @@ input[type='datetime-local']::-webkit-calendar-picker-indicator {
   50% { filter: drop-shadow(0 0 11px var(--pin-color, #b299f1)); }
 }
 
-/* Zona vacía: invitación a ser el primero. */
-.pin-empty {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-  transform: translate(-8px, -8px);
-}
-
-.pin-empty-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 9999px;
-  background: #b299f1;
-  box-shadow: 0 0 0 0 rgba(178, 153, 241, 0.5);
-  animation: pin-empty 2.8s ease-out infinite;
-}
-
-@keyframes pin-empty {
-  0% { box-shadow: 0 0 0 0 rgba(178, 153, 241, 0.5); }
-  70% { box-shadow: 0 0 0 14px rgba(178, 153, 241, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(178, 153, 241, 0); }
-}
-
-.pin-empty-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: #d6c8f9;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-}
-
-/* Veleros del Nahuel Huapi. Puro decorado: cabecean, no se tocan. */
-.boat {
-  animation: boat-bob 4.5s ease-in-out infinite;
-  opacity: 0.9;
-  line-height: 0;
-}
-
-@keyframes boat-bob {
-  0%, 100% { transform: translateY(0) rotate(-3deg); }
-  50% { transform: translateY(-2px) rotate(3deg); }
-}
-
 /* `prefers-reduced-motion` global ya apaga las transiciones, pero no los
-   keyframes: se apagan acá uno por uno. El movimiento del velero por el
-   lago vive en un rAF y se corta en JS (ver map-canvas.tsx). */
+   keyframes: se apagan acá uno por uno. */
 @media (prefers-reduced-motion: reduce) {
   .pin-pulse,
-  .pin-glow svg,
-  .pin-empty-dot,
-  .boat {
+  .pin-glow svg {
     animation: none !important;
   }
   .pin-pulse { opacity: 0.35; }
