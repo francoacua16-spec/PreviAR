@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, Marker, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import { LABELS_URL, TILE_ATTRIBUTION, TILE_URL, MAX_ZOOM } from '@/lib/map-style'
@@ -195,20 +195,56 @@ const BOAT_ROUTES: Array<Array<[number, number]>> = [
     [-40.9805, -71.6205],
     [-40.9925, -71.6705],
   ],
+  // Brazo del lago frente al centro: las otras tres rutas quedan a ~12 km al
+  // norte y a zoom 13 no entran en pantalla. Sin esta, el adorno existe pero
+  // nadie lo ve nunca.
+  [
+    [-41.0975, -71.3805],
+    [-41.0905, -71.3305],
+    [-41.0985, -71.2805],
+  ],
 ]
 
 /** Metros por segundo a los que deriva un velero. Lento a propósito. */
 const BOAT_SPEED = 0.00022
 
 /**
+ * Recuadro grosero del Nahuel Huapi: alcanza para decidir si dibujar veleros.
+ * El borde sur va en -41.16 y no en -41.13 porque el centro de Bariloche está
+ * en -41.1335: con el recuadro anterior la ciudad quedaba justo afuera y los
+ * veleros no se dibujaban nunca.
+ */
+const LAKE_BOX = { minLat: -41.16, minLng: -71.72, maxLat: -40.93, maxLng: -71.1 }
+
+function touchesLake(b: L.LatLngBounds): boolean {
+  return (
+    b.getSouth() < LAKE_BOX.maxLat &&
+    b.getNorth() > LAKE_BOX.minLat &&
+    b.getWest() < LAKE_BOX.maxLng &&
+    b.getEast() > LAKE_BOX.minLng
+  )
+}
+
+/**
  * Veleros a la deriva sobre el lago. Es la respuesta al pedido de "llamar la
  * atención en el mapa": el lago de Bariloche era una mancha muerta.
  *
  * Se monta sólo cuando el recuadro visible toca el lago, así el resto del país
- * no paga un rAF por nada.
+ * no paga un rAF por nada. La decisión se toma sobre los bounds reales y no
+ * sobre el centro de la ciudad: con el centro, panear hasta el lago desde
+ * cualquier otra ciudad no encendía nada.
  */
-function Boats({ visible }: { visible: boolean }) {
+function Boats() {
   const map = useMap()
+  const [visible, setVisible] = useState(() => touchesLake(map.getBounds()))
+
+  useEffect(() => {
+    const sync = () => setVisible(touchesLake(map.getBounds()))
+    map.on('moveend', sync)
+    return () => {
+      map.off('moveend', sync)
+    }
+  }, [map])
 
   useEffect(() => {
     if (!visible) return
@@ -262,9 +298,6 @@ function Boats({ visible }: { visible: boolean }) {
   return null
 }
 
-/** Recuadro grosero del Nahuel Huapi: alcanza para decidir si dibujar veleros. */
-const LAKE_BOX = { minLat: -41.13, minLng: -71.72, maxLat: -40.93, maxLng: -71.1 }
-
 export function MapCanvas({ city, zones, pos, onSelectZone, onBoundsChange }: MapCanvasProps) {
   const cityDef: CityDef = getCity(city)
   const icons = useMemo(() => ({ user: userIcon() }), [])
@@ -275,12 +308,6 @@ export function MapCanvas({ city, zones, pos, onSelectZone, onBoundsChange }: Ma
   // en pantalla: con previas alrededor serían ruido gris (por eso se sacaron en
   // su momento), pero en un mapa vacío son la única salida que ve el usuario.
   const emptyZones = zones.length === 0 ? cityDef.zones.slice(0, 6) : []
-
-  const boatsVisible =
-    cityDef.center.lat > LAKE_BOX.minLat &&
-    cityDef.center.lat < LAKE_BOX.maxLat &&
-    cityDef.center.lng > LAKE_BOX.minLng &&
-    cityDef.center.lng < LAKE_BOX.maxLng
 
   return (
     <MapContainer
@@ -297,7 +324,7 @@ export function MapCanvas({ city, zones, pos, onSelectZone, onBoundsChange }: Ma
 
       <ViewWatcher city={city} onBoundsChange={onBoundsChange} />
       <CenterOnMe pos={pos} cityDef={cityDef} skip={!!savedView} />
-      <Boats visible={boatsVisible} />
+      <Boats />
 
       {pos && <Marker position={[pos.lat, pos.lng]} icon={icons.user} zIndexOffset={500} />}
 
