@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { Toaster } from 'sonner'
@@ -70,38 +70,58 @@ export function Providers({ children }: { children: ReactNode }) {
     [supabase]
   )
 
+  // Usuario del que ya cargamos perfil y flag de admin. onAuthStateChange
+  // también dispara en cada refresh de token; sin esto volvíamos a pedir perfil
+  // e is_admin() cada hora, y otra vez al montar.
+  const loadedUid = useRef<string | null>(null)
+
+  const loadExtras = useCallback(
+    (u: User | null) => {
+      if (!u) {
+        loadedUid.current = null
+        setProfile(null)
+        setAdmin(false)
+        return
+      }
+      if (loadedUid.current === u.id) return
+      loadedUid.current = u.id
+      void refreshProfile(u.id)
+      void isAdmin(supabase).then(setAdmin)
+    },
+    [refreshProfile, supabase]
+  )
+
   useEffect(() => {
     let active = true
 
-    supabase.auth.getUser().then(({ data }) => {
+    // getSession lee la sesión que el navegador ya tiene guardada: no sale a la
+    // red. getUser() pegaba a /auth/v1/user y dejaba toda la app en `loading`
+    // hasta que volviera esa respuesta, así que el primer pintado esperaba un
+    // round-trip. Quién sos de verdad lo valida la base en cada RPC (RLS); acá
+    // sólo decidimos qué mostrar.
+    supabase.auth.getSession().then(({ data }) => {
       if (!active) return
-      setUser(data.user)
-      if (data.user) {
-        refreshProfile(data.user.id)
-        isAdmin(supabase).then((v) => active && setAdmin(v))
-      }
+      const u = data.session?.user ?? null
+      setUser(u)
+      loadExtras(u)
       setLoading(false)
     })
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return
       const u = session?.user ?? null
       setUser(u)
-      if (u) {
-        refreshProfile(u.id)
-        isAdmin(supabase).then((v) => active && setAdmin(v))
-      } else {
-        setProfile(null)
-        setAdmin(false)
-      }
+      loadExtras(u)
+      setLoading(false)
     })
 
     return () => {
       active = false
       subscription.unsubscribe()
     }
-  }, [supabase, refreshProfile])
+  }, [supabase, loadExtras])
 
   const value = useMemo<UserContextValue>(
     () => ({

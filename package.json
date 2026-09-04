@@ -41,5 +41,14 @@
     "tailwindcss": "^3.4.15",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.6.3"
-  }
+  },
+  "browserslist": [
+    "chrome >= 90",
+    "edge >= 90",
+    "firefox >= 90",
+    "safari >= 15",
+    "ios_saf >= 15",
+    "not dead",
+    "not op_mini all"
+  ]
 }

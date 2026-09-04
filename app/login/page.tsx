@@ -69,6 +69,18 @@ export default function LoginPage({
           PreviAR es un tablón entre privados. No vendemos entradas ni organizamos
           eventos. Al usar la app aceptás ser responsable de tu propia joda.
         </p>
+
+        <p className="mt-3 text-center text-[11px] text-muted-foreground/60">
+          Al entrar aceptás los{' '}
+          <Link className="underline underline-offset-2 hover:text-foreground" href="/terminos">
+            términos
+          </Link>{' '}
+          y la{' '}
+          <Link className="underline underline-offset-2 hover:text-foreground" href="/privacy">
+            política de privacidad
+          </Link>
+          .
+        </p>
       </div>
 
       <Link

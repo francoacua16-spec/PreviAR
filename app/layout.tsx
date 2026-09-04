@@ -17,15 +17,44 @@ const unbounded = Unbounded({
   weight: ['500', '600', '700', '800'],
 })
 
+/** Dominio real de producción. Sin esto, Next no puede resolver las URLs
+ *  absolutas que piden Open Graph y los canónicos. */
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://previar-rust.vercel.app'
+
+const DESCRIPTION =
+  'El mapa privado y efímero de las previas reales de La Plata, CABA y Bariloche. Casas y quintas, no boliches. La dirección aparece cuando te aprueban.'
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: 'PreviAR — Las previas reales de tu ciudad',
     template: '%s · PreviAR',
   },
-  description:
-    'El mapa privado y efímero donde se arman las previas reales de La Plata, CABA y Bariloche. Sin boliches: casas, quintas y deptos. Dirección oculta hasta que te aprueban.',
+  description: DESCRIPTION,
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'es_AR',
+    url: '/',
+    siteName: 'PreviAR',
+    title: 'PreviAR — Las previas reales de tu ciudad',
+    description: DESCRIPTION,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'PreviAR — Las previas reales de tu ciudad',
+    description: DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-image-preview': 'large' },
+  },
+  // `app/icon.png` ya lo toma Next por convención de archivo; declarar acá un
+  // `/icon.svg` que no existe en `public/` sólo generaba un 404 en producción.
   icons: {
-    icon: '/icon.svg',
     apple: '/icons/apple-touch-icon.png',
   },
   appleWebApp: {
@@ -34,6 +63,7 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
   },
   applicationName: 'PreviAR',
+  formatDetection: { telephone: false },
   keywords: ['previas', 'jodas', 'fiestas', 'La Plata', 'CABA', 'Bariloche', 'mapa'],
 }
 

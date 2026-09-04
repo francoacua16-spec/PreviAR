@@ -9,7 +9,7 @@ import { PIN_COLORS } from '@/lib/constants'
 import { getCity, type City, type CityDef } from '@/lib/zones'
 import { CITY_RADIUS_M } from '@/lib/constants'
 import type { CityZoneRow } from '@/lib/types'
-import { zonePinDataUrl, userDotDataUrl, dimDotDataUrl } from './marker-icons'
+import { zonePinDataUrl, userDotDataUrl } from './marker-icons'
 import type { GeoPos } from './use-geolocation'
 
 interface MapCanvasProps {
@@ -96,21 +96,27 @@ function PersistView({ city }: { city: City }) {
   return null
 }
 
-const zoneIcon = (count: number, color: string) =>
-  L.icon({
+/**
+ * Cache de íconos por (contador, color). Sin esto cada render volvía a generar
+ * un data-URL SVG por pin: con el refresco de fondo, todos los markers del mapa
+ * se reconstruían aunque no hubiera cambiado nada. Las combinaciones son pocas
+ * (contadores chicos × 4 colores), así que el cache no crece.
+ */
+const zoneIconCache = new Map<string, L.Icon>()
+
+const zoneIcon = (count: number, color: string) => {
+  const key = `${count}|${color}`
+  const cached = zoneIconCache.get(key)
+  if (cached) return cached
+  const icon = L.icon({
     iconUrl: zonePinDataUrl({ count, color }),
     iconSize: [48, 54],
     iconAnchor: [24, 54],
     tooltipAnchor: [0, -50],
   })
-
-const dimIcon = () =>
-  L.icon({
-    iconUrl: dimDotDataUrl(),
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
-    tooltipAnchor: [0, -10],
-  })
+  zoneIconCache.set(key, icon)
+  return icon
+}
 
 const userIcon = () =>
   L.icon({
@@ -121,12 +127,16 @@ const userIcon = () =>
 
 export function MapCanvas({ city, zones, pos, onSelectZone }: MapCanvasProps) {
   const cityDef: CityDef = getCity(city)
-  const zoneCounts = zones.reduce<Record<string, number>>((acc, z) => {
-    acc[z.zone_text] = Number(z.party_count)
-    return acc
-  }, {})
+  const zoneCounts = useMemo(
+    () =>
+      zones.reduce<Record<string, number>>((acc, z) => {
+        acc[z.zone_text] = Number(z.party_count)
+        return acc
+      }, {}),
+    [zones]
+  )
 
-  const icons = useMemo(() => ({ dim: dimIcon(), user: userIcon() }), [])
+  const icons = useMemo(() => ({ user: userIcon() }), [])
   // Se lee una sola vez por montaje (el MapContainer remonta con key={city}).
   const savedView = useMemo(() => readSavedView(city), [city])
 
@@ -148,20 +158,11 @@ export function MapCanvas({ city, zones, pos, onSelectZone }: MapCanvasProps) {
 
       {pos && <Marker position={[pos.lat, pos.lng]} icon={icons.user} zIndexOffset={500} />}
 
+      {/* Solo zonas con previas activas. Los puntos grises de las zonas vacías
+          ensuciaban el mapa sin aportar nada: eran ruido, no información. */}
       {cityDef.zones.map((zone) => {
         const count = zoneCounts[zone.key] ?? 0
-        if (count === 0) {
-          return (
-            <Marker
-              key={zone.key}
-              position={[zone.lat, zone.lng]}
-              icon={icons.dim}
-              eventHandlers={{ click: () => onSelectZone(zone.key, zone.label) }}
-            >
-              <Tooltip direction="top">{zone.label}</Tooltip>
-            </Marker>
-          )
-        }
+        if (count === 0) return null
         const meters = pos ? haversineMeters(pos, zone) : null
         const color = meters ? PIN_COLORS[distanceColor(meters)] : PIN_COLORS.neutral
         return (

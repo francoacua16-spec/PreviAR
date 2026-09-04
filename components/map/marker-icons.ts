@@ -34,11 +34,3 @@ export function userDotDataUrl() {
   </svg>`
   return svgToDataUrl(svg)
 }
-
-/** Dot tenue para zonas sin previas. */
-export function dimDotDataUrl() {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
-    <circle cx="10" cy="10" r="5" fill="#3A3A44"/>
-  </svg>`
-  return svgToDataUrl(svg)
-}

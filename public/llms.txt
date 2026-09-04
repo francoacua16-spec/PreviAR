@@ -1,0 +1,21 @@
+# PreviAR
+
+> Mapa privado y efímero donde se arman previas reales en La Plata, CABA y
+> Bariloche. Casas, quintas y deptos — no boliches. La dirección exacta queda
+> oculta hasta que el host te aprueba, y la previa se borra sola al terminar.
+
+PreviAR no vende entradas ni organiza eventos: es un tablón entre particulares.
+Requiere cuenta de Google y ser mayor de 18. Todo lo que está detrás del login
+es privado y no se indexa.
+
+## Público
+- [Inicio](https://previar-rust.vercel.app/): el mapa por ciudad con las previas activas.
+- [Entrar](https://previar-rust.vercel.app/login): ingreso con Google.
+- [Política de privacidad](https://previar-rust.vercel.app/privacy): qué datos se usan y cómo pedir que se borren.
+- [Términos y condiciones](https://previar-rust.vercel.app/terminos): reglas de uso y responsabilidades.
+
+## Privado (requiere sesión, no indexable)
+- /buscar, /mis-previas, /profile, /party/{id}, /admin
+
+## Contacto
+fran.acua@hotmail.com

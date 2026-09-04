@@ -6,6 +6,8 @@ import { MyPartiesClient } from '@/components/party/my-parties-client'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
+  // Ruta privada: detrás del login y con datos de gente real. Fuera del índice.
+  robots: { index: false, follow: false },
   title: 'Mis previas',
   description: 'Las previas que armaste y a las que vas.',
 }

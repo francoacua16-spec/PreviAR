@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getParty } from '@/lib/api'
@@ -6,6 +7,13 @@ import { ExpiredParty } from '@/components/party/expired-party'
 import type { PartyRow } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = {
+  title: 'Previa',
+  // Ruta privada: el contenido depende de si te aprobaron. Fuera del índice, y
+  // sin volcar el título real de la previa en el <head>.
+  robots: { index: false, follow: false },
+}
 
 export default async function PartyPage({ params }: { params: { id: string } }) {
   const supabase = createClient()

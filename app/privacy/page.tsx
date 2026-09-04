@@ -5,6 +5,8 @@ import { Wordmark } from '@/components/logo'
 
 export const metadata: Metadata = {
   title: 'Política de privacidad',
+  description: 'Qué datos usa PreviAR, para qué, y cómo pedir que se borren.',
+  alternates: { canonical: '/privacy' },
 }
 
 export default function PrivacyPage() {

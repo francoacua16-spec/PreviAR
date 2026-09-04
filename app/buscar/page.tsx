@@ -6,6 +6,8 @@ import { SearchClient } from '@/components/search/search-client'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
+  // Ruta privada: detrás del login y con datos de gente real. Fuera del índice.
+  robots: { index: false, follow: false },
   title: 'Buscar',
   description: 'Buscá previas por nombre, zona, música o tipo de lugar.',
 }

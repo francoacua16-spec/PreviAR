@@ -95,12 +95,48 @@ export function MapShell() {
     [supabase, city, user]
   )
 
+  // Antes esto era un setInterval de 5 segundos: una RPC `list_city_zones` cada
+  // 5s por pestaña abierta, corriendo igual con la app en segundo plano y aunque
+  // no hubiera cambiado nada. Ahora escuchamos los cambios reales de `parties`
+  // (la tabla ya está publicada en realtime, ver migración 0006) y dejamos un
+  // refresco lento sólo como red de seguridad si el socket se cae.
   useEffect(() => {
     void refreshZones()
-    // Actualiza previas activas cada 5s sin que el usuario tenga que recargar.
-    const id = setInterval(() => void refreshZones({ silent: true }), 5000)
-    return () => clearInterval(id)
-  }, [refreshZones])
+    if (!user) return
+
+    // Una previa nueva dispara varios eventos seguidos (insert + updates de
+    // contadores). Los agrupamos en un solo refresco.
+    let burst: ReturnType<typeof setTimeout> | null = null
+    const scheduleRefresh = () => {
+      if (burst) return
+      burst = setTimeout(() => {
+        burst = null
+        void refreshZones({ silent: true })
+      }, 800)
+    }
+
+    const channel = supabase
+      .channel(`zones:${city}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parties' }, scheduleRefresh)
+      .subscribe()
+
+    // Volver a la app después de un rato: puede haberse perdido eventos.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refreshZones({ silent: true })
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
+    const fallback = setInterval(() => {
+      if (document.visibilityState === 'visible') void refreshZones({ silent: true })
+    }, 60_000)
+
+    return () => {
+      if (burst) clearTimeout(burst)
+      clearInterval(fallback)
+      document.removeEventListener('visibilitychange', onVisible)
+      void supabase.removeChannel(channel)
+    }
+  }, [refreshZones, supabase, user, city])
 
   // Si la zona tocada tiene una sola previa, saltamos la lista y vamos directo a ella.
   async function handleSelectZone(key: string, label: string) {

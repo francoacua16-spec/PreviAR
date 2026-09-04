@@ -10,7 +10,7 @@ import { adminUnseenCount, countPendingForMe } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 /** Rutas donde la barra estorba: pantallas de foco único o sin sesión. */
-const HIDDEN_PREFIXES = ['/login', '/party/', '/auth', '/privacy']
+const HIDDEN_PREFIXES = ['/login', '/party/', '/auth', '/privacy', '/terminos']
 
 interface Tab {
   href: string

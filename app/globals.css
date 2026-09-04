@@ -303,3 +303,47 @@
     background-image: none;
   }
 }
+
+/* ---- Inputs de fecha/hora en iOS Safari ----
+   WebKit le da a estos inputs un ancho intrínseco propio y alinea el valor a
+   la derecha con márgenes internos: dentro de un contenedor angosto el texto
+   se salía de la caja (bug "la fecha está salida"). Fuera de @layer y con
+   selector de atributo para ganarle a las utilidades de Tailwind. */
+input[type='date'],
+input[type='time'],
+input[type='datetime-local'],
+input[type='month'],
+input[type='week'] {
+  -webkit-appearance: none;
+  appearance: none;
+  /* flex + center: el valor queda centrado vertical en los 44px del input,
+     que es lo que hacía el `flex` de Tailwind antes del reset. */
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  line-height: normal;
+}
+
+input[type='date']::-webkit-date-and-time-value,
+input[type='time']::-webkit-date-and-time-value,
+input[type='datetime-local']::-webkit-date-and-time-value {
+  min-width: 0;
+  margin: 0;
+  text-align: left;
+}
+
+input[type='date']::-webkit-datetime-edit,
+input[type='time']::-webkit-datetime-edit,
+input[type='datetime-local']::-webkit-datetime-edit {
+  padding: 0;
+  line-height: 1.2;
+}
+
+/* El picker nativo se queda pegado al borde derecho en vez de empujar el valor. */
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='time']::-webkit-calendar-picker-indicator,
+input[type='datetime-local']::-webkit-calendar-picker-indicator {
+  margin-left: auto;
+  opacity: 0.6;
+}
