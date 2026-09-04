@@ -55,6 +55,10 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
   const { supabase } = useUser()
   const router = useRouter()
 
+  // El id nunca cambia en esta pantalla: lo fijamos desde el prop para que
+  // los efectos no se resuscriban en cada refetch.
+  const partyId = initialParty.id
+
   const [party, setParty] = useState<PartyRow>(initialParty)
   const [myStatus, setMyStatus] = useState<MyStatus>(initialParty.my_status)
   const [checkedIn, setCheckedIn] = useState(initialParty.checked_in)
@@ -87,39 +91,58 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
     }
   }, [supabase, party.id])
 
-  // ── Realtime: contador de asistentes + mi solicitud + registro ──
-  // OJO seguridad: Realtime manda el payload de UPDATE según la RLS de
-  // SELECT (activa y no expirada), no según el GRANT SELECT (columnas) que
-  // sí filtra queries normales. Por eso acá solo se mergean columnas de esa
-  // misma whitelist — nunca address_hidden/arrival_notes/whatsapp_number/
-  // lat_hidden/lng_hidden, que solo llegan gateados vía getParty() (poll).
+  // ── Único escritor de `party`: get_party ─────────────────────
+  //
+  // Antes había tres escritores sobre este estado, sin orden entre sí: el
+  // prop del server (que se leía una sola vez y nunca se reconciliaba), un
+  // merge parcial campo por campo desde el payload de realtime, y un poll
+  // cada 20s. Cada uno traía los datos en un formato distinto y con un
+  // criterio de visibilidad distinto — la policy `parties_select` filtra por
+  // status y expires_at, get_party (SECURITY DEFINER) no filtra nada — así
+  // que se pisaban entre ellos.
+  //
+  // Eso es lo que hacía "aparecer y desaparecer" la previa entera al editar:
+  // `expired` gatea quince bloques del render, y se recalcula desde
+  // `party.expires_at`. Realtime manda los timestamps en el formato del WAL
+  // de Postgres ("2026-09-04 23:15:00+00"), que WebKit no parsea — o sea que
+  // en el iPhone quedaba Invalid Date hasta que el poll lo corregía 20
+  // segundos después. Ida y vuelta, bloques que se van y vuelven.
+  //
+  // Ahora realtime no escribe: solo avisa "algo cambió". El estado siempre lo
+  // escribe get_party, que además re-corre el gating real del server. De paso
+  // desaparece el problema de las columnas: ya no hay que mantener a mano una
+  // whitelist de qué se puede mergear del payload y qué no.
+  const refetch = useCallback(async () => {
+    try {
+      const fresh = await getParty(supabase, partyId)
+      if (!fresh) return
+      setParty(fresh)
+      setMyStatus(fresh.my_status)
+      setCheckedIn(fresh.checked_in)
+      setAttendees(fresh.attendees_count)
+    } catch {
+      // Un fallo puntual de red no debe vaciar lo que ya está en pantalla.
+    }
+  }, [supabase, partyId])
+
+  // ── Realtime: disparador, no fuente de datos ────────────────
   useEffect(() => {
     const channel = supabase
-      .channel(`party-${party.id}`)
+      .channel(`party-${partyId}`)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'parties',
-          filter: `id=eq.${party.id}`,
+          filter: `id=eq.${partyId}`,
         },
         (payload) => {
-          const p = payload.new as Record<string, unknown>
-          setAttendees(p.attendees_count as number)
-          setParty((prev) => ({
-            ...prev,
-            title: (p.title as string) ?? prev.title,
-            description: (p.description as string | null) ?? prev.description,
-            status: (p.status as string) ?? prev.status,
-            max_people: (p.max_people as number) ?? prev.max_people,
-            start_at: (p.start_at as string) ?? prev.start_at,
-            expires_at: (p.expires_at as string) ?? prev.expires_at,
-            // genres/venue_type están en el GRANT SELECT (0007): no son datos
-            // gateados, así que mergearlos por realtime no filtra nada.
-            genres: (p.genres as string[] | null) ?? prev.genres,
-            venue_type: (p.venue_type as string | null) ?? prev.venue_type,
-          }))
+          // El contador se puede aplicar directo: es un int, no tiene
+          // problema de formato, y es el dato que más rápido quiere verse.
+          const count = (payload.new as Record<string, unknown>).attendees_count
+          if (typeof count === 'number') setAttendees(count)
+          void refetch()
         }
       )
       .on(
@@ -128,7 +151,7 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
           event: 'UPDATE',
           schema: 'public',
           table: 'party_requests',
-          filter: `party_id=eq.${party.id}`,
+          filter: `party_id=eq.${partyId}`,
         },
         (payload) => {
           if (payload.new.user_id === currentUserId) {
@@ -152,19 +175,35 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [supabase, party.id, currentUserId])
+  }, [supabase, partyId, currentUserId, refetch])
 
-  // ── Poll de respaldo cada 20s: re-corre el gating real server-side ──
+  // ── Red de seguridad: por si se cae el websocket ─────────────
+  // Con realtime disparando el refetch, el poll dejó de ser la vía principal
+  // y pasó a ser respaldo. Cada 20s era una tercera fuente compitiendo; a 60s
+  // más un refetch al volver a la pestaña cubre el caso real (la app estuvo
+  // en segundo plano y el socket se murió) sin pelearse con nadie.
   useEffect(() => {
-    const id = setInterval(() => {
-      getParty(supabase, party.id)
-        .then((fresh) => {
-          if (fresh) setParty(fresh)
-        })
-        .catch(() => {})
-    }, 20_000)
-    return () => clearInterval(id)
-  }, [supabase, party.id])
+    const id = setInterval(() => void refetch(), 60_000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refetch()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [refetch])
+
+  // ── Reconciliar el prop del server ───────────────────────────
+  // Sin esto, `router.refresh()` después de editar re-renderiza el Server
+  // Component pero el cliente sigue mostrando el objeto con el que se montó,
+  // porque `useState(initialParty)` sólo lee el prop la primera vez.
+  useEffect(() => {
+    setParty(initialParty)
+    setMyStatus(initialParty.my_status)
+    setCheckedIn(initialParty.checked_in)
+    setAttendees(initialParty.attendees_count)
+  }, [initialParty])
 
   // ── Cuenta regresiva ─────────────────────────────────────────
   const refreshCountdown = useCallback(() => {
@@ -630,7 +669,8 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
         open={editOpen}
         onOpenChange={setEditOpen}
         party={party}
-        onUpdated={(fields) =>
+        onUpdated={(fields) => {
+          // Optimista, para que el cambio se vea al instante...
           setParty((prev) => ({
             ...prev,
             title: fields.title,
@@ -641,7 +681,12 @@ export function PartyClient({ initialParty, currentUserId }: PartyClientProps) {
             genres: fields.genres,
             venue_type: fields.venueType,
           }))
-        }
+          // ...y refresh para tirar el Router Cache de Next. Sin esto, salir al
+          // mapa y volver a entrar dentro de los 30s que Next cachea una ruta
+          // dinámica te devolvía la versión previa a la edición, y recién el
+          // poll la corregía. Ése era el otro lado del "aparece y desaparece".
+          router.refresh()
+        }}
       />
 
       <InviteDialog

@@ -1,11 +1,26 @@
+import type { City } from './zones'
 export type PartyType = 'private' | 'open'
 export type RequestStatus = 'pending' | 'approved' | 'rejected'
 export type MyStatus = 'host' | RequestStatus | 'none' | null
 
 /** Row de list_city_zones */
-export interface CityZoneRow {
-  zone_text: string
+/**
+ * Row de zones_in_bbox: una zona con previas activas dentro del recuadro que
+ * el mapa está mostrando. Trae ciudad y coordenadas propias porque el
+ * recuadro puede cruzar varias ciudades a la vez.
+ */
+export interface BboxZoneRow {
+  city_key: string
+  city_label: string
+  zone_key: string
+  zone_label: string
+  lat: number
+  lng: number
   party_count: number
+  /** Hay al menos una previa que todavía no llenó el cupo. */
+  has_space: boolean
+  /** Alguna previa de la zona se creó en la última hora. */
+  is_new: boolean
 }
 
 /** Row de list_zone_parties */
@@ -27,7 +42,7 @@ export interface ZonePartyRow {
 export interface SearchPartyRow {
   id: string
   title: string
-  city: 'la_plata' | 'caba' | 'bariloche'
+  city: City
   zone_text: string
   type: PartyType
   max_people: number
@@ -60,7 +75,7 @@ export interface PartyRow {
   host_name: string
   title: string
   description: string | null
-  city: 'la_plata' | 'caba' | 'bariloche'
+  city: City
   zone_text: string
   type: PartyType
   max_people: number
@@ -119,7 +134,7 @@ export interface MyPartyRow {
   id: string
   title: string
   zone_text: string
-  city: 'la_plata' | 'caba' | 'bariloche'
+  city: City
   attendees_count: number
   max_people: number
   start_at: string
@@ -144,7 +159,7 @@ export interface AdminPartyRow {
   host_email: string | null
   title: string
   description: string | null
-  city: 'la_plata' | 'caba' | 'bariloche'
+  city: City
   zone_text: string
   type: PartyType
   address_hidden: string | null
@@ -241,7 +256,7 @@ export interface AdminReportRow {
 export interface CreatePartyInput {
   title: string
   description: string | null
-  city: 'la_plata' | 'caba' | 'bariloche'
+  city: City
   zone: string
   /** Obligatoria: sin dirección la previa no sirve. */
   address: string

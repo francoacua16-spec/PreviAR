@@ -1,4 +1,4 @@
-import type { City } from './zones'
+import { getCity, type City } from './zones'
 
 /** Toda previa vive 8 horas y muere (Pilar C). */
 export const PARTY_DURATION_HOURS = 8
@@ -6,21 +6,29 @@ export const PARTY_DURATION_HOURS = 8
 /** Anti-spam: máximo 3 previas creadas por usuario cada 24 hs. */
 export const MAX_PARTIES_PER_DAY = 3
 
-/** Límite legal por ciudad: La Plata 50, CABA/Bariloche 40. */
-export const CITY_LEGAL_LIMITS: Record<City, number> = {
-  la_plata: 50,
-  caba: 40,
-  bariloche: 40,
+/**
+ * Límite legal por ciudad. Antes era un Record exhaustivo con las tres
+ * ciudades escritas a mano; con el catálogo completo cada ciudad trae el suyo
+ * (`legalLimit`), y la base lo valida por su lado en `city_legal_limit()`.
+ */
+export function cityLegalLimit(city: City): number {
+  return getCity(city).legalLimit
 }
 
 /**
  * Radio en el que consideramos que el mapa "está" en una ciudad. Sirve para no
- * arrastrar la vista fuera de la ciudad elegida: si estás en La Plata y tocás
- * CABA, el mapa tiene que quedarse en CABA. La Plata y CABA están a ~55 km, así
- * que 30 km separa bien las tres ciudades sin cortar sus barrios (el más lejano
- * está a ~20 km del centro).
+ * arrastrar la vista fuera de la ciudad elegida.
+ *
+ * Era una constante global de 30 km, que servía con tres ciudades separadas por
+ * más de 50 km. Con el país entero un radio fijo pega ciudades vecinas: en el
+ * Gran Buenos Aires hay partidos a 8 km uno del otro. Ahora cada ciudad declara
+ * el suyo en el catálogo y esto queda sólo como piso para claves desconocidas.
  */
-export const CITY_RADIUS_M = 30_000
+export const CITY_RADIUS_FALLBACK_M = 30_000
+
+export function cityRadiusM(city: City): number {
+  return getCity(city).radiusM || CITY_RADIUS_FALLBACK_M
+}
 
 /** Colores de pin por distancia a la previa (km). */
 export const DISTANCE_THRESHOLDS = {

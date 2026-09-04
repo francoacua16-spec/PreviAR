@@ -7,16 +7,24 @@ import { LABELS_URL, TILE_ATTRIBUTION, TILE_URL, MAX_ZOOM } from '@/lib/map-styl
 import { haversineMeters, distanceColor } from '@/lib/distance'
 import { PIN_COLORS } from '@/lib/constants'
 import { getCity, type City, type CityDef } from '@/lib/zones'
-import { CITY_RADIUS_M } from '@/lib/constants'
-import type { CityZoneRow } from '@/lib/types'
-import { zonePinDataUrl, userDotDataUrl } from './marker-icons'
+import { cityRadiusM } from '@/lib/constants'
+import type { BboxZoneRow } from '@/lib/types'
+import { zonePinHtml, emptyZonePinHtml, boatHtml, userDotDataUrl } from './marker-icons'
 import type { GeoPos } from './use-geolocation'
+
+export interface MapBounds {
+  minLat: number
+  minLng: number
+  maxLat: number
+  maxLng: number
+}
 
 interface MapCanvasProps {
   city: City
-  zones: CityZoneRow[]
+  zones: BboxZoneRow[]
   pos: GeoPos | null
-  onSelectZone: (zoneKey: string, zoneLabel: string) => void
+  onSelectZone: (cityKey: string, zoneKey: string, zoneLabel: string) => void
+  onBoundsChange: (bounds: MapBounds) => void
 }
 
 /**
@@ -36,7 +44,7 @@ function CenterOnMe({ pos, cityDef, skip }: { pos: GeoPos | null; cityDef: CityD
   useEffect(() => {
     if (!pos || done.current) return
     done.current = true
-    if (haversineMeters(pos, cityDef.center) > CITY_RADIUS_M) return
+    if (haversineMeters(pos, cityDef.center) > cityRadiusM(cityDef.key)) return
     map.panTo([pos.lat, pos.lng])
   }, [map, pos, cityDef])
 
@@ -65,7 +73,7 @@ function readSavedView(city: City): SavedView | null {
     ) {
       // Una vista guardada lejos de la ciudad quedó mal (bug viejo: el mapa se
       // iba a tu ubicación al cambiar de ciudad y guardaba eso). La tiramos.
-      if (haversineMeters(parsed, getCity(city).center) > CITY_RADIUS_M) return null
+      if (haversineMeters(parsed, getCity(city).center) > cityRadiusM(city)) return null
       return parsed
     }
   } catch {
@@ -83,38 +91,77 @@ function saveView(city: City, lat: number, lng: number, zoom: number) {
   }
 }
 
-/** Guarda el centro/zoom cada vez que el usuario mueve el mapa, para restaurarlo
- * al volver de la vista de una previa (ver "Volver al mapa" en party-client.tsx). */
-function PersistView({ city }: { city: City }) {
-  useMapEvents({
+/**
+ * Guarda el centro/zoom cada vez que el usuario mueve el mapa, y avisa hacia
+ * arriba qué recuadro quedó visible: los pines ya no salen de la ciudad
+ * elegida sino de lo que se está mirando, así el paneo libre trae previas de
+ * donde sea sin pasar por el selector.
+ */
+function ViewWatcher({ city, onBoundsChange }: { city: City; onBoundsChange: (b: MapBounds) => void }) {
+  const emit = (map: L.Map) => {
+    const b = map.getBounds()
+    onBoundsChange({
+      minLat: b.getSouth(),
+      minLng: b.getWest(),
+      maxLat: b.getNorth(),
+      maxLng: b.getEast(),
+    })
+  }
+
+  const map = useMapEvents({
     moveend: (e) => {
-      const map = e.target
-      const center = map.getCenter()
-      saveView(city, center.lat, center.lng, map.getZoom())
+      const m = e.target as L.Map
+      const center = m.getCenter()
+      saveView(city, center.lat, center.lng, m.getZoom())
+      emit(m)
     },
   })
+
+  // Primer recuadro: sin esto el mapa arranca vacío hasta que el usuario lo
+  // toca. `moveend` no dispara solo al montar.
+  useEffect(() => {
+    emit(map)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map])
+
   return null
 }
 
 /**
- * Cache de íconos por (contador, color). Sin esto cada render volvía a generar
- * un data-URL SVG por pin: con el refresco de fondo, todos los markers del mapa
- * se reconstruían aunque no hubiera cambiado nada. Las combinaciones son pocas
- * (contadores chicos × 4 colores), así que el cache no crece.
+ * Cache de íconos por (contador, color, pulso, brillo). Sin esto cada render
+ * volvía a construir un ícono por pin: con el refresco de fondo, todos los
+ * markers se reconstruían aunque no hubiera cambiado nada. Las combinaciones
+ * son pocas (contadores chicos × 4 colores × 4 estados), así que no crece.
  */
-const zoneIconCache = new Map<string, L.Icon>()
+const zoneIconCache = new Map<string, L.DivIcon>()
 
-const zoneIcon = (count: number, color: string) => {
-  const key = `${count}|${color}`
+const zoneIcon = (count: number, color: string, pulse: boolean, glow: boolean) => {
+  const key = `${count}|${color}|${pulse ? 1 : 0}|${glow ? 1 : 0}`
   const cached = zoneIconCache.get(key)
   if (cached) return cached
-  const icon = L.icon({
-    iconUrl: zonePinDataUrl({ count, color }),
+  const icon = L.divIcon({
+    html: zonePinHtml({ count, color, pulse, glow }),
+    className: 'pin-icon',
     iconSize: [48, 54],
     iconAnchor: [24, 54],
     tooltipAnchor: [0, -50],
   })
   zoneIconCache.set(key, icon)
+  return icon
+}
+
+const emptyIconCache = new Map<string, L.DivIcon>()
+
+const emptyIcon = (label: string) => {
+  const cached = emptyIconCache.get(label)
+  if (cached) return cached
+  const icon = L.divIcon({
+    html: emptyZonePinHtml(label),
+    className: 'pin-icon',
+    iconSize: [10, 10],
+    iconAnchor: [5, 5],
+  })
+  emptyIconCache.set(label, icon)
   return icon
 }
 
@@ -125,20 +172,115 @@ const userIcon = () =>
     iconAnchor: [14, 14],
   })
 
-export function MapCanvas({ city, zones, pos, onSelectZone }: MapCanvasProps) {
-  const cityDef: CityDef = getCity(city)
-  const zoneCounts = useMemo(
-    () =>
-      zones.reduce<Record<string, number>>((acc, z) => {
-        acc[z.zone_text] = Number(z.party_count)
-        return acc
-      }, {}),
-    [zones]
-  )
+/**
+ * Recorridos de los veleros sobre el Nahuel Huapi. Son rutas fijas trazadas
+ * dentro del agua en vez de un polígono del lago: el polígono serían varios KB
+ * de GeoJSON y un test de punto-en-polígono por cuadro, para un adorno que
+ * nadie toca. Con tres rutas alcanza y el costo es cero.
+ */
+const BOAT_ROUTES: Array<Array<[number, number]>> = [
+  [
+    [-41.0355, -71.5285],
+    [-41.0245, -71.4705],
+    [-41.0195, -71.4105],
+    [-41.0265, -71.3505],
+  ],
+  [
+    [-41.0455, -71.2205],
+    [-41.0325, -71.1705],
+    [-41.0215, -71.1205],
+  ],
+  [
+    [-40.9905, -71.5705],
+    [-40.9805, -71.6205],
+    [-40.9925, -71.6705],
+  ],
+]
 
+/** Metros por segundo a los que deriva un velero. Lento a propósito. */
+const BOAT_SPEED = 0.00022
+
+/**
+ * Veleros a la deriva sobre el lago. Es la respuesta al pedido de "llamar la
+ * atención en el mapa": el lago de Bariloche era una mancha muerta.
+ *
+ * Se monta sólo cuando el recuadro visible toca el lago, así el resto del país
+ * no paga un rAF por nada.
+ */
+function Boats({ visible }: { visible: boolean }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (!visible) return
+    // La regla global de globals.css apaga keyframes, pero no detiene un rAF:
+    // acá se consulta a mano y directamente no se arranca.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+
+    const markers = BOAT_ROUTES.map((route, i) =>
+      L.marker(route[0], {
+        icon: L.divIcon({ html: boatHtml(i % 2 === 1), className: 'boat-icon', iconSize: [26, 26], iconAnchor: [13, 13] }),
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: -200,
+      }).addTo(map)
+    )
+
+    // Progreso de cada velero por su ruta, 0..1, con rebote en las puntas.
+    const t = BOAT_ROUTES.map((_, i) => i * 0.3)
+    const dir = BOAT_ROUTES.map(() => 1)
+    let raf = 0
+    let last = performance.now()
+
+    const tick = (now: number) => {
+      const dt = Math.min(now - last, 100) / 1000
+      last = now
+      BOAT_ROUTES.forEach((route, i) => {
+        t[i] += dir[i] * BOAT_SPEED * dt * 60
+        if (t[i] >= 1) {
+          t[i] = 1
+          dir[i] = -1
+        } else if (t[i] <= 0) {
+          t[i] = 0
+          dir[i] = 1
+        }
+        const seg = (route.length - 1) * t[i]
+        const a = route[Math.min(Math.floor(seg), route.length - 2)]
+        const b = route[Math.min(Math.floor(seg) + 1, route.length - 1)]
+        const f = seg - Math.floor(seg)
+        markers[i].setLatLng([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f])
+      })
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+
+    return () => {
+      cancelAnimationFrame(raf)
+      markers.forEach((m) => m.remove())
+    }
+  }, [map, visible])
+
+  return null
+}
+
+/** Recuadro grosero del Nahuel Huapi: alcanza para decidir si dibujar veleros. */
+const LAKE_BOX = { minLat: -41.13, minLng: -71.72, maxLat: -40.93, maxLng: -71.1 }
+
+export function MapCanvas({ city, zones, pos, onSelectZone, onBoundsChange }: MapCanvasProps) {
+  const cityDef: CityDef = getCity(city)
   const icons = useMemo(() => ({ user: userIcon() }), [])
   // Se lee una sola vez por montaje (el MapContainer remonta con key={city}).
   const savedView = useMemo(() => readSavedView(city), [city])
+
+  // Zonas sin previas de la ciudad actual. Sólo se dibujan cuando no hay NADA
+  // en pantalla: con previas alrededor serían ruido gris (por eso se sacaron en
+  // su momento), pero en un mapa vacío son la única salida que ve el usuario.
+  const emptyZones = zones.length === 0 ? cityDef.zones.slice(0, 6) : []
+
+  const boatsVisible =
+    cityDef.center.lat > LAKE_BOX.minLat &&
+    cityDef.center.lat < LAKE_BOX.maxLat &&
+    cityDef.center.lng > LAKE_BOX.minLng &&
+    cityDef.center.lng < LAKE_BOX.maxLng
 
   return (
     <MapContainer
@@ -153,32 +295,40 @@ export function MapCanvas({ city, zones, pos, onSelectZone }: MapCanvasProps) {
       <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={MAX_ZOOM} />
       <TileLayer url={LABELS_URL} maxZoom={MAX_ZOOM} />
 
-      <PersistView city={city} />
+      <ViewWatcher city={city} onBoundsChange={onBoundsChange} />
       <CenterOnMe pos={pos} cityDef={cityDef} skip={!!savedView} />
+      <Boats visible={boatsVisible} />
 
       {pos && <Marker position={[pos.lat, pos.lng]} icon={icons.user} zIndexOffset={500} />}
 
-      {/* Solo zonas con previas activas. Los puntos grises de las zonas vacías
-          ensuciaban el mapa sin aportar nada: eran ruido, no información. */}
-      {cityDef.zones.map((zone) => {
-        const count = zoneCounts[zone.key] ?? 0
-        if (count === 0) return null
+      {zones.map((zone) => {
+        const count = Number(zone.party_count)
         const meters = pos ? haversineMeters(pos, zone) : null
         const color = meters ? PIN_COLORS[distanceColor(meters)] : PIN_COLORS.neutral
         return (
           <Marker
-            key={zone.key}
+            key={`${zone.city_key}/${zone.zone_key}`}
             position={[zone.lat, zone.lng]}
-            icon={zoneIcon(count, color)}
+            icon={zoneIcon(count, color, zone.has_space, zone.is_new)}
             zIndexOffset={300}
-            eventHandlers={{ click: () => onSelectZone(zone.key, zone.label) }}
+            eventHandlers={{ click: () => onSelectZone(zone.city_key, zone.zone_key, zone.zone_label) }}
           >
             <Tooltip direction="top">
-              {`${zone.label} · ${count} previa${count === 1 ? '' : 's'}`}
+              {`${zone.zone_label} · ${count} previa${count === 1 ? '' : 's'}`}
             </Tooltip>
           </Marker>
         )
       })}
+
+      {emptyZones.map((zone) => (
+        <Marker
+          key={`empty/${zone.key}`}
+          position={[zone.lat, zone.lng]}
+          icon={emptyIcon('Sé el primero')}
+          zIndexOffset={100}
+          eventHandlers={{ click: () => onSelectZone(cityDef.key, zone.key, zone.label) }}
+        />
+      ))}
     </MapContainer>
   )
 }

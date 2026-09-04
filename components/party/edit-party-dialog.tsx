@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, MessageCircle, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { hostUpdateParty, friendlyError } from '@/lib/api'
 import { useUser } from '@/components/providers'
-import { CITY_LEGAL_LIMITS } from '@/lib/constants'
+import { cityLegalLimit } from '@/lib/constants'
 import { LegalModal } from '@/components/create/legal-modal'
 import { GenrePicker } from '@/components/create/genre-picker'
 import { VenuePicker } from '@/components/create/venue-picker'
@@ -39,7 +39,7 @@ interface EditPartyDialogProps {
 
 export function EditPartyDialog({ open, onOpenChange, party, onUpdated }: EditPartyDialogProps) {
   const { supabase } = useUser()
-  const legalLimit = CITY_LEGAL_LIMITS[party.city]
+  const legalLimit = cityLegalLimit(party.city)
 
   const [title, setTitle] = useState(party.title)
   const [description, setDescription] = useState(party.description ?? '')
@@ -52,6 +52,30 @@ export function EditPartyDialog({ open, onOpenChange, party, onUpdated }: EditPa
   const [submitting, setSubmitting] = useState(false)
 
   const needsLegal = maxPeople > legalLimit
+
+  // El diálogo queda montado siempre, así que sus useState sólo leen `party`
+  // la primera vez. Sin esto, editar dos veces seguidas mostraba los valores
+  // de la primera edición, y el segundo guardado los reescribía pisando lo
+  // que ya se había guardado. Se re-siembra cada vez que se abre.
+  const seeded = useRef(false)
+  useEffect(() => {
+    if (!open) {
+      seeded.current = false
+      return
+    }
+    // Sólo en la transición a abierto: `party` cambia de identidad en cada
+    // refetch, y re-sembrar con el diálogo abierto le borraría al host lo que
+    // está escribiendo.
+    if (seeded.current) return
+    seeded.current = true
+    setTitle(party.title)
+    setDescription(party.description ?? '')
+    setArrivalNotes(party.arrival_notes ?? '')
+    setWhatsapp(party.whatsapp_number ?? '')
+    setMaxPeople(party.max_people)
+    setGenres(party.genres ?? [])
+    setVenueType(party.venue_type)
+  }, [open, party])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

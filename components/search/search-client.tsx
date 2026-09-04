@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Clock, Loader2, MapPin, Search, SlidersHorizontal, Users, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -10,7 +10,7 @@ import { useGeolocation } from '@/components/map/use-geolocation'
 import { searchParties } from '@/lib/api'
 import { MUSIC_GENRES, VENUE_TYPES, genreEmoji, genreLabel, venueDef } from '@/lib/constants'
 import { formatWhen, vibeOf } from '@/lib/format'
-import { CITIES, zoneLabel, type City } from '@/lib/zones'
+import { CITIES, findCity, getCity, searchCities, zoneLabel, type City } from '@/lib/zones'
 import type { SearchPartyRow } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -31,6 +31,7 @@ export function SearchClient() {
   const [genres, setGenres] = useState<string[]>([])
   const [venues, setVenues] = useState<string[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [cityQuery, setCityQuery] = useState('')
   const [rows, setRows] = useState<SearchPartyRow[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -38,7 +39,7 @@ export function SearchClient() {
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(CITY_STORAGE_KEY)
-      if (stored === 'caba' || stored === 'bariloche' || stored === 'la_plata') setCity(stored)
+      if (stored && findCity(stored)) setCity(stored)
     } catch {
       // sin localStorage: buscamos en todas las ciudades
     }
@@ -52,6 +53,16 @@ export function SearchClient() {
       .catch(() => setRows([]))
       .finally(() => setLoading(false))
   }, [supabase, user, city, q, genres, venues, pos])
+
+  // El filtro de ciudad no puede ser 59 chips: es una pared. Se muestran las
+  // primeras (más pobladas primero, que es el orden del catálogo) más la
+  // elegida, y el resto aparece escribiendo.
+  const cityChips = useMemo(() => {
+    if (cityQuery.trim()) return searchCities(cityQuery, 12)
+    const top = CITIES.slice(0, 8)
+    if (city && !top.some((c) => c.key === city)) return [getCity(city), ...top]
+    return top
+  }, [cityQuery, city])
 
   // Debounce del texto; los chips disparan al toque porque el usuario ya decidió.
   useEffect(() => {
@@ -116,11 +127,18 @@ export function SearchClient() {
               <p className="type-caption mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Ciudad
               </p>
+              <Input
+                value={cityQuery}
+                onChange={(e) => setCityQuery(e.target.value)}
+                placeholder="Buscar ciudad…"
+                className="mb-2 h-9 text-xs"
+                autoComplete="off"
+              />
               <div className="flex flex-wrap gap-1.5">
                 <Chip on={city === null} onClick={() => setCity(null)}>
                   Todas
                 </Chip>
-                {CITIES.map((c) => (
+                {cityChips.map((c) => (
                   <Chip key={c.key} on={city === c.key} onClick={() => setCity(c.key)}>
                     {c.label}
                   </Chip>

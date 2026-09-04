@@ -5,7 +5,7 @@ import { TriangleAlert } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
-import { CITY_LEGAL_LIMITS } from '@/lib/constants'
+import { cityLegalLimit } from '@/lib/constants'
 import { getCity, type City } from '@/lib/zones'
 
 interface LegalModalProps {
@@ -21,7 +21,8 @@ interface LegalModalProps {
 /**
  * Modal legal obligatorio (Pilar B — Anti-denuncia).
  * Se abre cuando max_people supera el límite de la ciudad
- * (50 La Plata / 40 CABA y Bariloche). No se puede crear sin aceptar.
+ * (50 en La Plata, 40 en el resto; sale de `cities.legal_limit`). No se puede
+ * crear sin aceptar.
  */
 export function LegalModal({
   open,
@@ -33,7 +34,7 @@ export function LegalModal({
   onDecline,
 }: LegalModalProps) {
   const cityDef = getCity(city)
-  const limit = CITY_LEGAL_LIMITS[city]
+  const limit = cityLegalLimit(city)
   const [checked, setChecked] = useState(accepted)
 
   useEffect(() => {

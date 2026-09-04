@@ -20,7 +20,7 @@ export function LoginGate() {
           <LoginButton />
         </div>
         <p className="mt-4 text-[11px] text-muted-foreground/60">
-          La Plata · CABA · Bariloche
+          La Plata · CABA · Bariloche · y 56 ciudades más
         </p>
       </div>
     </div>

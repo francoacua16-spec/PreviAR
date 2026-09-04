@@ -55,7 +55,7 @@ export default function OpengraphImage() {
             color: '#B299F1',
           }}
         >
-          La Plata · CABA · Bariloche
+          La Plata · CABA · Bariloche · +56 ciudades
         </div>
       </div>
     ),

@@ -50,12 +50,11 @@ import type {
   FeedbackRow,
 } from '@/lib/types'
 import { genreEmoji, genreLabel, venueDef } from '@/lib/constants'
+import { getCity } from '@/lib/zones'
 
-const CITY_LABEL: Record<string, string> = {
-  la_plata: 'La Plata',
-  caba: 'CABA',
-  bariloche: 'Bariloche',
-}
+// El nombre sale del catálogo: si no, cada ciudad nueva aparecía acá con su
+// clave cruda ("mar_del_plata") en el panel de admin.
+const cityLabel = (key: string) => getCity(key).label
 
 const FILTERS: { id: AdminFilter; label: string }[] = [
   { id: 'live', label: 'En vivo' },
@@ -274,7 +273,7 @@ export function AdminClient() {
                   <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
                     <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>
-                      {CITY_LABEL[p.city] ?? p.city} · {p.zone_text}
+                      {cityLabel(p.city)} · {p.zone_text}
                       {p.address_hidden ? ` · ${p.address_hidden}` : ''}
                       {p.arrival_notes ? ` (${p.arrival_notes})` : ''}
                     </span>

@@ -12,9 +12,10 @@ import { ZoneSheet } from './zone-sheet'
 import { LoginGate } from './login-gate'
 import { useGeolocation } from './use-geolocation'
 import { CreateDialog } from '@/components/create/create-dialog'
-import { friendlyError, listCityZones, listZoneParties, setUserCity } from '@/lib/api'
-import type { City } from '@/lib/zones'
-import type { CityZoneRow } from '@/lib/types'
+import { friendlyError, listZoneParties, setUserCity, zonesInBbox } from '@/lib/api'
+import { DEFAULT_CITY, findCity, type City } from '@/lib/zones'
+import type { BboxZoneRow } from '@/lib/types'
+import type { MapBounds } from './map-canvas'
 
 // Leaflet toca window/document: solo cliente.
 const MapCanvas = dynamic(() => import('./map-canvas').then((m) => m.MapCanvas), {
@@ -27,7 +28,9 @@ const CITY_STORAGE_KEY = 'previar:city'
 function readStoredCity(): City | null {
   try {
     const stored = window.localStorage.getItem(CITY_STORAGE_KEY)
-    return stored === 'caba' || stored === 'bariloche' || stored === 'la_plata' ? stored : null
+    // Se valida contra el catálogo, no contra tres literales: si el usuario
+    // guardó una ciudad que después se saca del catálogo, cae al default.
+    return stored && findCity(stored) ? stored : null
   } catch {
     return null
   }
@@ -43,10 +46,15 @@ export function MapShell() {
   // el marcado hidratado. Eso dejaba el botón de la ciudad activa pintado mal:
   // tocabas CABA estando ya en CABA y no pasaba nada. Arrancamos siempre igual
   // que el server y ajustamos después de montar.
-  const [city, setCity] = useState<City>('la_plata')
-  const [zones, setZones] = useState<CityZoneRow[]>([])
+  const [city, setCity] = useState<City>(DEFAULT_CITY)
+  const [zones, setZones] = useState<BboxZoneRow[]>([])
   const [zonesLoading, setZonesLoading] = useState(false)
-  const [selectedZone, setSelectedZone] = useState<{ key: string; label: string } | null>(null)
+  const [selectedZone, setSelectedZone] = useState<
+    { city: City; key: string; label: string } | null
+  >(null)
+  // Último recuadro que reportó el mapa. Es lo que decide qué previas se
+  // piden: el usuario puede panear a cualquier lado, no sólo a su ciudad.
+  const [bounds, setBounds] = useState<MapBounds | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [pendingCreate, setPendingCreate] = useState(false)
 
@@ -74,17 +82,18 @@ export function MapShell() {
     setCreateOpen(true)
   }, [pendingCreate, user])
 
-  // Refresca zonas cuando cambia ciudad / usuario / o se crea una previa.
-  // silent=true se usa en el polling de fondo: no prende el spinner ni tira toasts.
+  // Refresca las zonas del recuadro visible: cambia al panear, al hacer zoom,
+  // al crear una previa o cuando llega un evento de realtime.
+  // silent=true se usa en el refresco de fondo: no prende el spinner ni tira toasts.
   const refreshZones = useCallback(
     async (opts?: { silent?: boolean }) => {
-      if (!user) {
+      if (!user || !bounds) {
         setZones([])
         return
       }
       if (!opts?.silent) setZonesLoading(true)
       try {
-        const data = await listCityZones(supabase, city)
+        const data = await zonesInBbox(supabase, bounds)
         setZones(data)
       } catch (e) {
         if (!opts?.silent) toast.error(friendlyError(e))
@@ -92,8 +101,26 @@ export function MapShell() {
         if (!opts?.silent) setZonesLoading(false)
       }
     },
-    [supabase, city, user]
+    [supabase, bounds, user]
   )
+
+  // El mapa avisa el recuadro en cada `moveend`. Sin debounce, arrastrar el
+  // mapa un rato dispara una RPC por gesto; con esto, una sola al frenar.
+  const handleBoundsChange = useCallback((next: MapBounds) => {
+    setBounds((prev) => {
+      // Micro-movimientos (un toque que mueve 3 px) no justifican otra consulta.
+      if (
+        prev &&
+        Math.abs(prev.minLat - next.minLat) < 1e-4 &&
+        Math.abs(prev.minLng - next.minLng) < 1e-4 &&
+        Math.abs(prev.maxLat - next.maxLat) < 1e-4 &&
+        Math.abs(prev.maxLng - next.maxLng) < 1e-4
+      ) {
+        return prev
+      }
+      return next
+    })
+  }, [])
 
   // Antes esto era un setInterval de 5 segundos: una RPC `list_city_zones` cada
   // 5s por pestaña abierta, corriendo igual con la app en segundo plano y aunque
@@ -101,6 +128,7 @@ export function MapShell() {
   // (la tabla ya está publicada en realtime, ver migración 0006) y dejamos un
   // refresco lento sólo como red de seguridad si el socket se cae.
   useEffect(() => {
+    if (!bounds) return
     void refreshZones()
     if (!user) return
 
@@ -136,14 +164,16 @@ export function MapShell() {
       document.removeEventListener('visibilitychange', onVisible)
       void supabase.removeChannel(channel)
     }
-  }, [refreshZones, supabase, user, city])
+  }, [refreshZones, supabase, user, city, bounds])
 
   // Si la zona tocada tiene una sola previa, saltamos la lista y vamos directo a ella.
-  async function handleSelectZone(key: string, label: string) {
-    const zoneRow = zones.find((z) => z.zone_text === key)
+  // La ciudad viene del pin y no del selector: el recuadro visible puede cruzar
+  // dos ciudades, y buscar la previa en la ciudad equivocada no devolvía nada.
+  async function handleSelectZone(cityKey: string, key: string, label: string) {
+    const zoneRow = zones.find((z) => z.city_key === cityKey && z.zone_key === key)
     if (Number(zoneRow?.party_count ?? 0) === 1) {
       try {
-        const rows = await listZoneParties(supabase, city, key, pos)
+        const rows = await listZoneParties(supabase, cityKey, key, pos)
         if (rows.length === 1) {
           router.push(`/party/${rows[0].id}`)
           return
@@ -152,7 +182,7 @@ export function MapShell() {
         // si falla, seguimos al comportamiento normal (abrir la hoja)
       }
     }
-    setSelectedZone({ key, label })
+    setSelectedZone({ city: cityKey, key, label })
   }
 
   function handleCityChange(next: City) {
@@ -181,6 +211,7 @@ export function MapShell() {
           zones={zones}
           pos={pos}
           onSelectZone={handleSelectZone}
+          onBoundsChange={handleBoundsChange}
         />
       </div>
 
@@ -222,7 +253,7 @@ export function MapShell() {
       <ZoneSheet
         open={selectedZone !== null}
         onOpenChange={(open) => !open && setSelectedZone(null)}
-        city={city}
+        city={selectedZone?.city ?? city}
         zoneKey={selectedZone?.key ?? null}
         zoneLabel={selectedZone?.label ?? ''}
         pos={pos}

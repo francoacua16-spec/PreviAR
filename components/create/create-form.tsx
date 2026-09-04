@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   CalendarClock,
   Loader2,
@@ -20,8 +20,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { useUser } from '@/components/providers'
 import { AutocompleteInput } from '@/components/map/autocomplete-input'
 import { createParty, friendlyError, setUserCity } from '@/lib/api'
-import { CITY_LEGAL_LIMITS, PARTY_DURATION_HOURS, isNauticalVenue } from '@/lib/constants'
-import { getCity, getZone, type City } from '@/lib/zones'
+import { cityLegalLimit, PARTY_DURATION_HOURS, isNauticalVenue } from '@/lib/constants'
+import { cityAt, getCity, getZone, nearestZone, type City } from '@/lib/zones'
 import { toDateTimeLocalValue } from '@/lib/format'
 import type { PartyType } from '@/lib/types'
 import { LegalModal } from './legal-modal'
@@ -61,10 +61,15 @@ function Section({
   )
 }
 
-export function CreateForm({ city, onCreated }: CreateFormProps) {
+export function CreateForm({ city: initialCity, onCreated }: CreateFormProps) {
   const { supabase, user } = useUser()
+
+  // La ciudad ya no la fija sólo el selector del mapa: con el paneo libre el
+  // usuario puede estar mirando La Plata y poner el pin en Mar del Plata. La
+  // decide el pin, y el selector es apenas el punto de partida.
+  const [city, setCity] = useState<City>(initialCity)
   const cityDef = getCity(city)
-  const legalLimit = CITY_LEGAL_LIMITS[city]
+  const legalLimit = cityLegalLimit(city)
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -90,6 +95,20 @@ export function CreateForm({ city, onCreated }: CreateFormProps) {
 
   const hasPin = lat !== null && lng !== null
   const addressOk = address.trim().length >= 5
+
+  // Al mover el pin, la ciudad y el barrio se reacomodan solos. Sin esto una
+  // previa en Rosario se guardaba como La Plata / Tolosa y no aparecía en
+  // ningún pin cerca de donde realmente es.
+  useEffect(() => {
+    if (lat === null || lng === null) return
+    const found = cityAt(lat, lng)
+    const nextCity = found?.key ?? city
+    const zoneHit = nearestZone(nextCity, lat, lng)
+    if (nextCity !== city) setCity(nextCity)
+    if (zoneHit && zoneHit.key !== zone) setZone(zoneHit.key)
+    // `zone` y `city` se leen pero no disparan: el efecto reacciona al pin.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lat, lng])
 
   /**
    * Lo que falta, en orden de aparición en el formulario. Se muestra en el

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "gen:zones": "node scripts/gen-zones-seed.mjs"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.1.2",

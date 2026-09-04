@@ -27,7 +27,7 @@ export default function PrivacyPage() {
 
       <p className="mb-4">
         PreviAR (&ldquo;la app&rdquo;) es un mapa privado y efímero para organizar previas en La
-        Plata, CABA y Bariloche. Esta política explica qué datos usamos y por qué.
+        Plata, CABA, Bariloche y el resto del país. Esta política explica qué datos usamos y por qué.
       </p>
 
       <h2 className="mb-2 mt-6 text-lg font-semibold text-foreground">Qué datos recolectamos</h2>

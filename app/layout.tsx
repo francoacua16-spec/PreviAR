@@ -22,7 +22,7 @@ const unbounded = Unbounded({
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://previar-rust.vercel.app'
 
 const DESCRIPTION =
-  'El mapa privado y efímero de las previas reales de La Plata, CABA y Bariloche. Casas y quintas, no boliches. La dirección aparece cuando te aprueban.'
+  'El mapa privado y efímero de las previas reales de todo el país. Casas y quintas, no boliches. La dirección aparece cuando te aprueban.'
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
   },
   applicationName: 'PreviAR',
   formatDetection: { telephone: false },
-  keywords: ['previas', 'jodas', 'fiestas', 'La Plata', 'CABA', 'Bariloche', 'mapa'],
+  keywords: ['previas', 'jodas', 'fiestas', 'La Plata', 'CABA', 'Bariloche', 'Córdoba', 'Rosario', 'Mar del Plata', 'mapa'],
 }
 
 export const viewport: Viewport = {

@@ -347,3 +347,104 @@ input[type='datetime-local']::-webkit-calendar-picker-indicator {
   margin-left: auto;
   opacity: 0.6;
 }
+
+/* ── Marcadores animados del mapa ─────────────────────────────────
+   Los pines son `divIcon` (HTML dentro del mapa), no `<img>`: por eso
+   se pueden animar por partes. El objetivo es uno solo — que una previa
+   a la que todavía se puede entrar se distinga de una llena de un vistazo. */
+
+.pin-wrap {
+  position: relative;
+  width: 48px;
+  height: 54px;
+  line-height: 0;
+}
+
+/* Anillo que late hacia afuera desde la base del pin (donde apoya en el
+   mapa), no desde el centro del SVG: si no, parece que flota. */
+.pin-pulse {
+  position: absolute;
+  left: 50%;
+  top: 30px;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 9999px;
+  border: 2px solid var(--pin-color, #b299f1);
+  opacity: 0;
+  animation: pin-pulse 2.4s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pin-pulse {
+  0% { transform: scale(0.55); opacity: 0.55; }
+  70% { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* Previa creada hace menos de una hora: brilla. Premia al que la armó. */
+.pin-glow svg {
+  filter: drop-shadow(0 0 6px var(--pin-color, #b299f1));
+  animation: pin-glow 2s ease-in-out infinite;
+}
+
+@keyframes pin-glow {
+  0%, 100% { filter: drop-shadow(0 0 4px var(--pin-color, #b299f1)); }
+  50% { filter: drop-shadow(0 0 11px var(--pin-color, #b299f1)); }
+}
+
+/* Zona vacía: invitación a ser el primero. */
+.pin-empty {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transform: translate(-8px, -8px);
+}
+
+.pin-empty-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: #b299f1;
+  box-shadow: 0 0 0 0 rgba(178, 153, 241, 0.5);
+  animation: pin-empty 2.8s ease-out infinite;
+}
+
+@keyframes pin-empty {
+  0% { box-shadow: 0 0 0 0 rgba(178, 153, 241, 0.5); }
+  70% { box-shadow: 0 0 0 14px rgba(178, 153, 241, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(178, 153, 241, 0); }
+}
+
+.pin-empty-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #d6c8f9;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+/* Veleros del Nahuel Huapi. Puro decorado: cabecean, no se tocan. */
+.boat {
+  animation: boat-bob 4.5s ease-in-out infinite;
+  opacity: 0.9;
+  line-height: 0;
+}
+
+@keyframes boat-bob {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-2px) rotate(3deg); }
+}
+
+/* `prefers-reduced-motion` global ya apaga las transiciones, pero no los
+   keyframes: se apagan acá uno por uno. El movimiento del velero por el
+   lago vive en un rAF y se corta en JS (ver map-canvas.tsx). */
+@media (prefers-reduced-motion: reduce) {
+  .pin-pulse,
+  .pin-glow svg,
+  .pin-empty-dot,
+  .boat {
+    animation: none !important;
+  }
+  .pin-pulse { opacity: 0.35; }
+}

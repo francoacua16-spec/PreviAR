@@ -11,7 +11,7 @@ import type {
   AdminStats,
   AdminUserRow,
   CheckinTimeRow,
-  CityZoneRow,
+  BboxZoneRow,
   CreatePartyInput,
   FeedbackRow,
   MyPartyRow,
@@ -61,10 +61,23 @@ export function friendlyError(error: unknown): string {
   return msg || 'Algo salió mal. Probá de nuevo.'
 }
 
-export async function listCityZones(supabase: SupabaseClient, city: City): Promise<CityZoneRow[]> {
-  const { data, error } = await supabase.rpc('list_city_zones', { p_city: city })
+/**
+ * Zonas con previas dentro del recuadro visible del mapa. Reemplaza al
+ * `list_city_zones` + array de JS cuando el usuario panea libremente: el
+ * recuadro puede caer entre dos ciudades, o en ninguna.
+ */
+export async function zonesInBbox(
+  supabase: SupabaseClient,
+  bbox: { minLat: number; minLng: number; maxLat: number; maxLng: number }
+): Promise<BboxZoneRow[]> {
+  const { data, error } = await supabase.rpc('zones_in_bbox', {
+    p_min_lat: bbox.minLat,
+    p_min_lng: bbox.minLng,
+    p_max_lat: bbox.maxLat,
+    p_max_lng: bbox.maxLng,
+  })
   if (error) throw error
-  return (data as CityZoneRow[] | null) ?? []
+  return (data as BboxZoneRow[] | null) ?? []
 }
 
 export async function listZoneParties(

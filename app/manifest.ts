@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'PreviAR — Las previas reales',
     short_name: 'PreviAR',
     description:
-      'El mapa privado y efímero donde se arman las previas reales de La Plata, CABA y Bariloche.',
+      'El mapa privado y efímero donde se arman las previas reales, en todo el país.',
     id: '/',
     start_url: '/',
     display: 'standalone',
