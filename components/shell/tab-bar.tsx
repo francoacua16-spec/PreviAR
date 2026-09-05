@@ -7,6 +7,7 @@ import { CalendarHeart, Map, Plus, Search, Shield, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { useUser } from '@/components/providers'
 import { adminUnseenCount, countPendingForMe } from '@/lib/api'
+import { CREATE_EVENT } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
 /** Rutas donde la barra estorba: pantallas de foco único o sin sesión. */
@@ -109,6 +110,13 @@ export function TabBar() {
   // "Crear" abre el diálogo del mapa: la creación necesita el mapa detrás para
   // elegir el pin, así que no tiene ruta propia — entra por el mapa con ?crear=1.
   function goCreate() {
+    // Ya en el mapa no hay navegación que hacer: `router.push('/?crear=1')` no
+    // remonta nada y el efecto que lee el query corre una sola vez, así que el
+    // botón quedaba muerto. Le avisamos al mapa directo por evento.
+    if (pathname === '/') {
+      window.dispatchEvent(new Event(CREATE_EVENT))
+      return
+    }
     router.push('/?crear=1')
   }
 

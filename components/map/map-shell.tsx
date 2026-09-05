@@ -14,6 +14,7 @@ import { LoginGate } from './login-gate'
 import { useGeolocation } from './use-geolocation'
 import { CreateDialog } from '@/components/create/create-dialog'
 import { friendlyError, listZoneParties, setUserCity, shopsInBbox, zonesInBbox } from '@/lib/api'
+import { CREATE_EVENT } from '@/lib/constants'
 import { DEFAULT_CITY, findCity, type City } from '@/lib/zones'
 import type { BboxZoneRow, ShopRow } from '@/lib/types'
 import type { MapBounds } from './map-canvas'
@@ -89,6 +90,17 @@ export function MapShell() {
     if (new URLSearchParams(window.location.search).get('crear') !== '1') return
     window.history.replaceState(null, '', '/')
     setPendingCreate(true)
+  }, [])
+
+  // Parado en el mapa, el "+" no navega a ningún lado: la ruta ya es "/", así
+  // que el efecto de arriba (que corre una sola vez al montar) nunca se volvía
+  // a disparar y el botón no hacía nada. La barra avisa por evento en ese caso.
+  useEffect(() => {
+    function onCreate() {
+      setPendingCreate(true)
+    }
+    window.addEventListener(CREATE_EVENT, onCreate)
+    return () => window.removeEventListener(CREATE_EVENT, onCreate)
   }, [])
 
   // La sesión llega después del primer render: guardamos la intención y abrimos

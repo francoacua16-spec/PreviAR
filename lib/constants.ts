@@ -132,3 +132,10 @@ export const SHOP_LABEL: Record<string, string> = {
   autoservicio: 'Autoservicio',
   supermercado: 'Supermercado',
 }
+
+/**
+ * El "+" de la barra inferior abre el diálogo de crear, que vive dentro del
+ * mapa. Desde otra sección eso es una navegación a `/?crear=1`; parado en el
+ * mapa no hay navegación posible, así que la barra emite este evento.
+ */
+export const CREATE_EVENT = 'previar:crear'
