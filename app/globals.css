@@ -402,3 +402,36 @@ input[type='datetime-local']::-webkit-calendar-picker-indicator {
   }
   .pin-pulse { opacity: 0.35; }
 }
+
+/* ── Pines de locales para comprar ─────────────────────────────────
+   Chicos y quietos a propósito: son muchos y no tienen que tapar las
+   previas. El punto verde/gris sale sólo si OSM trae el horario. */
+.shop-pin {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 9999px;
+  background: rgba(10, 10, 10, 0.92);
+  border: 1px solid rgba(178, 153, 241, 0.45);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.shop-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: #4ade80;
+  border: 1.5px solid #0a0a0a;
+}
+
+.shop-dot-closed {
+  background: #6b7280;
+}

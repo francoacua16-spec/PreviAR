@@ -68,3 +68,17 @@ export function zonePinHtml({
     </svg>
   </div>`
 }
+
+/**
+ * Pin de local para comprar. Deliberadamente chico y sin animación: son
+ * decenas por pantalla y no tienen que competir con los pines de previa, que
+ * son lo que la app viene a mostrar.
+ *
+ * El punto verde marca los que están abiertos ahora. Un local sin horario
+ * cargado no lleva punto: no sabemos, y no vamos a fingir que sí.
+ */
+export function shopPinHtml({ emoji, open }: { emoji: string; open: boolean | null }) {
+  const dot =
+    open === null ? '' : `<span class="shop-dot${open ? '' : ' shop-dot-closed'}"></span>`
+  return `<div class="shop-pin"><span aria-hidden="true">${emoji}</span>${dot}</div>`
+}

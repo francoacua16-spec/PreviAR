@@ -12,11 +12,11 @@ const MAX_FILE_BYTES = 5 * 1024 * 1024 // 5MB
 export function ProfileClient() {
   const router = useRouter()
   const { user, profile, isAdmin, supabase, refreshProfile } = useUser()
-  // Dos inputs, no uno. `capture` no es un filtro: en iOS Safari abre la cámara
-  // directo y te saca la opción de galería, así que un solo input con capture
-  // significaba "sacate una foto ahora o nada". Cada opción va por su input.
-  const cameraInputRef = useRef<HTMLInputElement>(null)
-  const galleryInputRef = useRef<HTMLInputElement>(null)
+  // Un solo input, sin `capture`. Con capture, iOS Safari abre la cámara
+  // directo y saca la opción de galería; sin capture, la hoja nativa ya
+  // ofrece las dos ("Sacar foto" y "Fototeca"). Tener además un botón
+  // nuestro de "Sacar foto" hacía que la opción apareciera dos veces.
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   const [displayName, setDisplayName] = useState(
     profile?.display_name ?? user?.user_metadata?.full_name ?? ''
@@ -104,7 +104,7 @@ export function ProfileClient() {
 
       <div className="glass mb-4 flex flex-col items-center gap-4 rounded-3xl p-6">
         <button
-          onClick={() => galleryInputRef.current?.click()}
+          onClick={() => photoInputRef.current?.click()}
           className="group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-neon-violet to-neon-lilac"
           aria-label="Elegir foto de perfil de la galería"
         >
@@ -119,41 +119,24 @@ export function ProfileClient() {
           </div>
         </button>
 
-        <div className="flex w-full gap-2">
-          <button
-            type="button"
-            onClick={() => cameraInputRef.current?.click()}
-            className="press flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 text-xs font-semibold transition-colors hover:bg-white/10"
-          >
-            <Camera className="h-4 w-4 shrink-0" /> Sacar foto
-          </button>
-          <button
-            type="button"
-            onClick={() => galleryInputRef.current?.click()}
-            className="press flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 text-xs font-semibold transition-colors hover:bg-white/10"
-          >
-            <ImagePlus className="h-4 w-4 shrink-0" /> Elegir foto
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => photoInputRef.current?.click()}
+          className="press flex h-11 w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 text-xs font-semibold transition-colors hover:bg-white/10"
+        >
+          <ImagePlus className="h-4 w-4 shrink-0" />
+          {profile?.avatar_url ? 'Cambiar foto' : 'Poner foto'}
+        </button>
 
         <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="user"
-          className="hidden"
-          onChange={handlePickPhoto}
-        />
-        <input
-          ref={galleryInputRef}
+          ref={photoInputRef}
           type="file"
           accept="image/*"
           className="hidden"
           onChange={handlePickPhoto}
         />
         <p className="text-center text-xs text-muted-foreground">
-          {profile?.avatar_url ? 'Cambiá tu foto' : 'Poné tu cara'}: sacala ahora o elegila de tu
-          galería 📸
+          Sacala ahora o elegila de tu galería 📸
         </p>
 
         <input

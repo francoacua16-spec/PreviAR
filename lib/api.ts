@@ -19,6 +19,7 @@ import type {
   PartyRow,
   AdminSongRow,
   SearchPartyRow,
+  ShopRow,
   SongRequestRow,
   ZonePartyRow,
 } from './types'
@@ -78,6 +79,25 @@ export async function zonesInBbox(
   })
   if (error) throw error
   return (data as BboxZoneRow[] | null) ?? []
+}
+
+/**
+ * Locales para comprar dentro del recuadro visible. Se sirve de la tabla
+ * `shops` y no de OpenStreetMap en vivo: la Overpass API se cae seguido y no
+ * puede estar en el camino crítico del mapa de nadie.
+ */
+export async function shopsInBbox(
+  supabase: SupabaseClient,
+  bbox: { minLat: number; minLng: number; maxLat: number; maxLng: number }
+): Promise<ShopRow[]> {
+  const { data, error } = await supabase.rpc('shops_in_bbox', {
+    p_min_lat: bbox.minLat,
+    p_min_lng: bbox.minLng,
+    p_max_lat: bbox.maxLat,
+    p_max_lng: bbox.maxLng,
+  })
+  if (error) throw error
+  return (data as ShopRow[] | null) ?? []
 }
 
 export async function listZoneParties(

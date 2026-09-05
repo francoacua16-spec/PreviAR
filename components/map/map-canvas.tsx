@@ -8,8 +8,10 @@ import { haversineMeters, distanceColor } from '@/lib/distance'
 import { PIN_COLORS } from '@/lib/constants'
 import { getCity, type City, type CityDef } from '@/lib/zones'
 import { cityRadiusM } from '@/lib/constants'
-import type { BboxZoneRow } from '@/lib/types'
-import { zonePinHtml, userDotDataUrl } from './marker-icons'
+import type { BboxZoneRow, ShopRow } from '@/lib/types'
+import { isOpenNow } from '@/lib/opening-hours'
+import { SHOP_EMOJI } from '@/lib/constants'
+import { zonePinHtml, shopPinHtml, userDotDataUrl } from './marker-icons'
 import type { GeoPos } from './use-geolocation'
 
 export interface MapBounds {
@@ -17,13 +19,17 @@ export interface MapBounds {
   minLng: number
   maxLat: number
   maxLng: number
+  /** Zoom con el que se está mirando. Los locales sólo se piden de cerca. */
+  zoom: number
 }
 
 interface MapCanvasProps {
   city: City
   zones: BboxZoneRow[]
+  shops: ShopRow[]
   pos: GeoPos | null
   onSelectZone: (cityKey: string, zoneKey: string, zoneLabel: string) => void
+  onSelectShop: (shop: ShopRow) => void
   onBoundsChange: (bounds: MapBounds) => void
 }
 
@@ -105,6 +111,7 @@ function ViewWatcher({ city, onBoundsChange }: { city: City; onBoundsChange: (b:
       minLng: b.getWest(),
       maxLat: b.getNorth(),
       maxLng: b.getEast(),
+      zoom: map.getZoom(),
     })
   }
 
@@ -150,6 +157,24 @@ const zoneIcon = (count: number, color: string, pulse: boolean, glow: boolean) =
   return icon
 }
 
+/** Íconos de local, cacheados por (emoji, estado). Son 5 × 3 combinaciones. */
+const shopIconCache = new Map<string, L.DivIcon>()
+
+const shopIcon = (emoji: string, open: boolean | null) => {
+  const key = `${emoji}|${open === null ? '?' : open ? 1 : 0}`
+  const cached = shopIconCache.get(key)
+  if (cached) return cached
+  const icon = L.divIcon({
+    html: shopPinHtml({ emoji, open }),
+    className: 'shop-icon',
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+    tooltipAnchor: [0, -14],
+  })
+  shopIconCache.set(key, icon)
+  return icon
+}
+
 const userIcon = () =>
   L.icon({
     iconUrl: userDotDataUrl(),
@@ -157,7 +182,7 @@ const userIcon = () =>
     iconAnchor: [14, 14],
   })
 
-export function MapCanvas({ city, zones, pos, onSelectZone, onBoundsChange }: MapCanvasProps) {
+export function MapCanvas({ city, zones, shops, pos, onSelectZone, onSelectShop, onBoundsChange }: MapCanvasProps) {
   const cityDef: CityDef = getCity(city)
   const icons = useMemo(() => ({ user: userIcon() }), [])
   // Se lee una sola vez por montaje (el MapContainer remonta con key={city}).
@@ -180,6 +205,23 @@ export function MapCanvas({ city, zones, pos, onSelectZone, onBoundsChange }: Ma
       <CenterOnMe pos={pos} cityDef={cityDef} skip={!!savedView} />
 
       {pos && <Marker position={[pos.lat, pos.lng]} icon={icons.user} zIndexOffset={500} />}
+
+      {/* Locales primero: van debajo de los pines de previa, que son el
+          contenido de la app. */}
+      {shops.map((shop) => {
+        const state = isOpenNow(shop.opening_hours)
+        return (
+          <Marker
+            key={`${shop.osm_type}/${shop.osm_id}`}
+            position={[shop.lat, shop.lng]}
+            icon={shopIcon(SHOP_EMOJI[shop.kind] ?? '🏪', state ? state.open : null)}
+            zIndexOffset={100}
+            eventHandlers={{ click: () => onSelectShop(shop) }}
+          >
+            <Tooltip direction="top">{shop.name}</Tooltip>
+          </Marker>
+        )
+      })}
 
       {zones.map((zone) => {
         const count = Number(zone.party_count)

@@ -23,6 +23,25 @@ export interface BboxZoneRow {
   is_new: boolean
 }
 
+/**
+ * Row de shops_in_bbox: un local donde comprar para la previa (kiosco,
+ * vinoteca, bebidas, autoservicio). Viene de OpenStreetMap.
+ */
+export interface ShopRow {
+  osm_type: string
+  osm_id: number
+  name: string
+  kind: string
+  lat: number
+  lng: number
+  /**
+   * Horario crudo de OSM ("Mo-Sa 08:00-22:00", "24/7"), o null si el local no
+   * lo tiene cargado — que es el caso de la enorme mayoría. Nunca se inventa:
+   * ver `lib/opening-hours.ts`.
+   */
+  opening_hours: string | null
+}
+
 /** Row de list_zone_parties */
 export interface ZonePartyRow {
   id: string

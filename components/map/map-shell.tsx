@@ -3,18 +3,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { Plus } from 'lucide-react'
+import { Plus, ShoppingBasket } from 'lucide-react'
 import { toast } from 'sonner'
 import { useUser } from '@/components/providers'
 import { Header } from './header'
 import { CityPicker } from './city-picker'
 import { ZoneSheet } from './zone-sheet'
+import { ShopSheet } from './shop-sheet'
 import { LoginGate } from './login-gate'
 import { useGeolocation } from './use-geolocation'
 import { CreateDialog } from '@/components/create/create-dialog'
-import { friendlyError, listZoneParties, setUserCity, zonesInBbox } from '@/lib/api'
+import { friendlyError, listZoneParties, setUserCity, shopsInBbox, zonesInBbox } from '@/lib/api'
 import { DEFAULT_CITY, findCity, type City } from '@/lib/zones'
-import type { BboxZoneRow } from '@/lib/types'
+import type { BboxZoneRow, ShopRow } from '@/lib/types'
 import type { MapBounds } from './map-canvas'
 
 // Leaflet toca window/document: solo cliente.
@@ -24,6 +25,14 @@ const MapCanvas = dynamic(() => import('./map-canvas').then((m) => m.MapCanvas),
 })
 
 const CITY_STORAGE_KEY = 'previar:city'
+const SHOPS_STORAGE_KEY = 'previar:shops'
+
+/**
+ * Zoom mínimo para pedir locales. Más lejos que esto un recuadro puede tener
+ * miles de kioscos: no entran en la pantalla ni le sirven a nadie que todavía
+ * está mirando media provincia.
+ */
+const SHOPS_MIN_ZOOM = 14
 
 function readStoredCity(): City | null {
   try {
@@ -55,6 +64,9 @@ export function MapShell() {
   // Último recuadro que reportó el mapa. Es lo que decide qué previas se
   // piden: el usuario puede panear a cualquier lado, no sólo a su ciudad.
   const [bounds, setBounds] = useState<MapBounds | null>(null)
+  const [shops, setShops] = useState<ShopRow[]>([])
+  const [showShops, setShowShops] = useState(false)
+  const [selectedShop, setSelectedShop] = useState<ShopRow | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [pendingCreate, setPendingCreate] = useState(false)
 
@@ -62,6 +74,11 @@ export function MapShell() {
   useEffect(() => {
     const stored = readStoredCity()
     if (stored) setCity(stored)
+    try {
+      setShowShops(window.localStorage.getItem(SHOPS_STORAGE_KEY) === '1')
+    } catch {
+      // localStorage inaccesible (modo privado): la capa arranca apagada
+    }
   }, [])
 
   // El botón "+" de la barra inferior entra por acá: crear necesita el mapa
@@ -104,6 +121,27 @@ export function MapShell() {
     [supabase, bounds, user]
   )
 
+  // Los locales no cambian de lugar ni de dueño mientras alguien mira el mapa,
+  // así que no van por realtime ni por el refresco de fondo: se piden sólo
+  // cuando cambia el recuadro y estamos lo bastante cerca.
+  useEffect(() => {
+    if (!user || !showShops || !bounds || bounds.zoom < SHOPS_MIN_ZOOM) {
+      setShops([])
+      return
+    }
+    let active = true
+    shopsInBbox(supabase, bounds)
+      .then((data) => active && setShops(data))
+      .catch(() => {
+        // Silencioso a propósito: es una capa opcional. Si falla, el mapa de
+        // previas —que es lo que la app hace— sigue funcionando igual.
+        if (active) setShops([])
+      })
+    return () => {
+      active = false
+    }
+  }, [supabase, user, showShops, bounds])
+
   // El mapa avisa el recuadro en cada `moveend`. Sin debounce, arrastrar el
   // mapa un rato dispara una RPC por gesto; con esto, una sola al frenar.
   const handleBoundsChange = useCallback((next: MapBounds) => {
@@ -114,7 +152,8 @@ export function MapShell() {
         Math.abs(prev.minLat - next.minLat) < 1e-4 &&
         Math.abs(prev.minLng - next.minLng) < 1e-4 &&
         Math.abs(prev.maxLat - next.maxLat) < 1e-4 &&
-        Math.abs(prev.maxLng - next.maxLng) < 1e-4
+        Math.abs(prev.maxLng - next.maxLng) < 1e-4 &&
+        prev.zoom === next.zoom
       ) {
         return prev
       }
@@ -192,6 +231,18 @@ export function MapShell() {
     if (user) setUserCity(supabase, user.id, next)
   }
 
+  function toggleShops() {
+    setShowShops((prev) => {
+      const next = !prev
+      try {
+        window.localStorage.setItem(SHOPS_STORAGE_KEY, next ? '1' : '0')
+      } catch {
+        // ignorar
+      }
+      return next
+    })
+  }
+
   function handleCreateClick() {
     if (!user) {
       toast.info('Iniciá sesión para armar tu previa 🔑')
@@ -209,8 +260,10 @@ export function MapShell() {
         <MapCanvas
           city={city}
           zones={zones}
+          shops={shops}
           pos={pos}
           onSelectZone={handleSelectZone}
+          onSelectShop={setSelectedShop}
           onBoundsChange={handleBoundsChange}
         />
       </div>
@@ -218,6 +271,24 @@ export function MapShell() {
       {/* OVERLAYS */}
       <Header />
       <CityPicker city={city} onChange={handleCityChange} />
+
+      {/* Antes de una previa hay que ir a comprar. La capa arranca apagada:
+          el mapa es de previas, los kioscos son ayuda opcional. */}
+      {user && (
+        <button
+          onClick={toggleShops}
+          aria-pressed={showShops}
+          className={`press absolute right-4 z-20 flex h-11 items-center gap-2 rounded-full px-4 font-display text-xs font-bold transition-colors ${
+            showShops ? 'bg-primary text-primary-foreground' : 'glass text-foreground'
+          }`}
+          style={{
+            bottom: 'calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 0.75rem)',
+          }}
+        >
+          <ShoppingBasket className="h-4 w-4" />
+          Comprar
+        </button>
+      )}
 
       {/* Leyenda de colores. Se apoya sobre la barra inferior cuando hay sesión
           (la barra se oculta sola si no la hay), así nunca queda tapada. */}
@@ -259,6 +330,13 @@ export function MapShell() {
         pos={pos}
       />
 
+      <ShopSheet
+        open={selectedShop !== null}
+        onOpenChange={(open) => !open && setSelectedShop(null)}
+        shop={selectedShop}
+        pos={pos}
+      />
+
       <CreateDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
@@ -268,6 +346,16 @@ export function MapShell() {
           router.push(`/party/${partyId}`)
         }}
       />
+
+      {/* Sin esto, prender "Comprar" con el mapa lejos no muestra nada y
+          parece roto. */}
+      {user && showShops && bounds && bounds.zoom < SHOPS_MIN_ZOOM && (
+        <div className="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2" style={{ top: 'calc(env(safe-area-inset-top) + 7.5rem)' }}>
+          <div className="glass rounded-full px-4 py-2 text-[11px] text-muted-foreground">
+            Acercá el mapa para ver los locales
+          </div>
+        </div>
+      )}
 
       {zonesLoading && user && (
         <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">

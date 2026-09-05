@@ -111,3 +111,24 @@ export function isNauticalVenue(key: string | null | undefined): boolean {
 
 /** Temas que cada persona le puede pedir al DJ. Duro, del lado del servidor también. */
 export const MAX_SONGS_PER_PERSON = 2
+
+/**
+ * Ícono por tipo de local. Las claves son las que escribe
+ * `scripts/gen-shops-seed.mjs` en la columna `shops.kind`.
+ */
+export const SHOP_EMOJI: Record<string, string> = {
+  kiosco: '🏪',
+  vinoteca: '🍷',
+  bebidas: '🍺',
+  autoservicio: '🛒',
+  supermercado: '🛒',
+}
+
+/** Nombre legible del tipo de local, para la hoja de detalle. */
+export const SHOP_LABEL: Record<string, string> = {
+  kiosco: 'Kiosco',
+  vinoteca: 'Vinoteca',
+  bebidas: 'Bebidas',
+  autoservicio: 'Autoservicio',
+  supermercado: 'Supermercado',
+}
