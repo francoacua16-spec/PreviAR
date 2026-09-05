@@ -31,4 +31,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 .env*
-.shops-cache/
+.shops-cache*/

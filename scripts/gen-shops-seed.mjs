@@ -15,41 +15,72 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const CACHE = path.join(root, '.shops-cache')
-const MIGRATION = path.join(root, 'supabase/migrations/0010_shops.sql')
+// Dos cachés: la original y la del rubro que se bajó después. Se leen las dos
+// como si fueran una sola; la clave de OSM deduplica lo que se pise.
+const CACHES = ['.shops-cache', '.shops-cache-grow'].map((d) => path.join(root, d))
+const MIGRATION = path.join(root, 'supabase/migrations/0011_shops_solo_previa.sql')
 
 const BEGIN = '-- >>> BEGIN SEED GENERADO — no editar a mano (npm run gen:shops)'
 const END = '-- <<< END SEED GENERADO'
 
-/** Etiqueta que entiende un argentino, no la taxonomía de OSM. */
+/**
+ * Etiqueta que entiende un argentino, no la taxonomía de OSM.
+ *
+ * Sólo entran rubros de los que se compra para una previa. `convenience` NO
+ * está acá a propósito: en Argentina esa etiqueta de OSM es un cajón de sastre
+ * —entraban pastas caseras, dietéticas, verdulerías— y ensuciaba el mapa. Se
+ * rescatan únicamente los que abren 24/7, que son los "24hs" de verdad.
+ */
 const KIND = {
   kiosk: 'kiosco',
   alcohol: 'vinoteca',
   wine: 'vinoteca',
   beverages: 'bebidas',
-  convenience: 'autoservicio',
-  supermarket: 'supermercado',
+  growshop: 'growshop',
+  // En Argentina el growshop se etiqueta casi siempre como `shop=cannabis`.
+  cannabis: 'growshop',
+}
+
+/** Los `convenience` sólo entran si son 24hs; el resto se descarta. */
+function kindOf(tags) {
+  const direct = KIND[tags.shop]
+  if (direct) return direct
+  if (tags.shop === 'convenience' && tags.opening_hours?.trim() === '24/7') return '24hs'
+  return null
 }
 
 const q = (s) => (s === null || s === undefined ? 'null' : `'${String(s).replace(/'/g, "''")}'`)
 
-const files = (await readdir(CACHE)).filter((f) => f.endsWith('.json'))
+const files = []
+for (const dir of CACHES) {
+  let names = []
+  try {
+    names = await readdir(dir)
+  } catch {
+    continue // la caché de un rubro puede no existir todavía
+  }
+  for (const f of names) if (f.endsWith('.json')) files.push(path.join(dir, f))
+}
 if (!files.length) throw new Error('Caché vacía: corré `node scripts/fetch-shops.mjs` primero')
 
 // Los recuadros de ciudades vecinas se pisan (el Gran Buenos Aires sobre todo),
 // así que el mismo local aparece en dos archivos. La clave de OSM deduplica.
 const seen = new Map()
 let sinNombre = 0
+let fueraDeRubro = 0
 
 for (const f of files) {
-  for (const el of JSON.parse(await readFile(path.join(CACHE, f), 'utf8'))) {
+  for (const el of JSON.parse(await readFile(f, 'utf8'))) {
     const name = el.tags?.name?.trim()
     if (!name) {
       sinNombre++
       continue
     }
-    const kind = KIND[el.tags?.shop]
-    if (!kind) continue
+    const kind = kindOf(el.tags ?? {})
+    if (!kind) {
+      fueraDeRubro++
+      continue
+    }
     const lat = el.lat ?? el.center?.lat
     const lng = el.lon ?? el.center?.lon
     if (typeof lat !== 'number' || typeof lng !== 'number') continue
@@ -77,10 +108,12 @@ const rows = [...seen.values()]
 if (!rows.length) throw new Error('Ningún local con nombre en la caché')
 
 const conHorario = [...seen.values()].filter((s) => s.hours).length
+const ciudades = new Set(files.map((f) => path.basename(f, '.json'))).size
 
 const seed = [
   BEGIN,
-  `-- ${rows.length} locales de ${files.length} ciudades; ${conHorario} con horario cargado en OSM.`,
+  `-- ${rows.length} locales de ${ciudades} ciudades; ${conHorario} con horario cargado en OSM.`,
+  '-- Rubros: kiosco, vinoteca, bebidas, growshop, 24hs. Nada más.',
   '-- Fuente: OpenStreetMap (ODbL).',
   '',
   'insert into public.shops (osm_type, osm_id, name, kind, lat, lng, opening_hours) values',
@@ -106,5 +139,6 @@ if (a < 0 || b < 0) throw new Error(`Faltan los marcadores de seed en ${MIGRATIO
 await writeFile(MIGRATION, migration.slice(0, a) + seed + migration.slice(b + END.length), 'utf8')
 
 console.log(
-  `gen:shops → ${rows.length} locales (${conHorario} con horario, ${sinNombre} descartados sin nombre)`
+  `gen:shops → ${rows.length} locales (${conHorario} con horario, ` +
+    `${sinNombre} sin nombre, ${fueraDeRubro} fuera de rubro)`
 )

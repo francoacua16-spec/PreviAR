@@ -1,6 +1,8 @@
 /**
  * Baja de OpenStreetMap los locales donde se compra para una previa (kioscos,
- * vinotecas, bebidas, autoservicios) y deja un JSON crudo por ciudad.
+ * vinotecas, bebidas, growshops y los 24hs) y deja un JSON crudo por ciudad.
+ * Los `convenience` se bajan igual porque de ahí salen los 24hs, pero el
+ * generador descarta los que no tienen `opening_hours=24/7`.
  *
  *   node scripts/fetch-shops.mjs
  *
@@ -16,9 +18,18 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const CACHE = path.join(root, '.shops-cache')
+/**
+ * Se puede apuntar a otra caché y a otro filtro para bajar un rubro nuevo sin
+ * volver a tirar abajo las 59 ciudades ya cacheadas:
+ *
+ *   SHOPS_RE='^growshop$' CACHE_DIR=.shops-cache-grow node scripts/fetch-shops.mjs
+ */
+const CACHE = path.join(root, process.env.CACHE_DIR || '.shops-cache')
 
-const SHOPS = '^(alcohol|wine|kiosk|convenience|beverages)$'
+// `cannabis` es la etiqueta que realmente usan los growshops argentinos en OSM
+// (22 contra 1 de `growshop` en el centro del país); van las dos.
+const SHOPS =
+  process.env.SHOPS_RE || '^(alcohol|wine|kiosk|convenience|beverages|growshop|cannabis)$'
 /** Medio lado del recuadro por ciudad, en grados de latitud (~13 km). */
 const HALF_LAT = 0.12
 

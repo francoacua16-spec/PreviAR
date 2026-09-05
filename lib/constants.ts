@@ -120,8 +120,8 @@ export const SHOP_EMOJI: Record<string, string> = {
   kiosco: '🏪',
   vinoteca: '🍷',
   bebidas: '🍺',
-  autoservicio: '🛒',
-  supermercado: '🛒',
+  growshop: '🌱',
+  '24hs': '🌙',
 }
 
 /** Nombre legible del tipo de local, para la hoja de detalle. */
@@ -129,8 +129,8 @@ export const SHOP_LABEL: Record<string, string> = {
   kiosco: 'Kiosco',
   vinoteca: 'Vinoteca',
   bebidas: 'Bebidas',
-  autoservicio: 'Autoservicio',
-  supermercado: 'Supermercado',
+  growshop: 'Growshop',
+  '24hs': 'Abierto 24hs',
 }
 
 /**

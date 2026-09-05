@@ -25,7 +25,7 @@ export interface BboxZoneRow {
 
 /**
  * Row de shops_in_bbox: un local donde comprar para la previa (kiosco,
- * vinoteca, bebidas, autoservicio). Viene de OpenStreetMap.
+ * vinoteca, bebidas, growshop, 24hs). Viene de OpenStreetMap.
  */
 export interface ShopRow {
   osm_type: string
